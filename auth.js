@@ -1,12 +1,10 @@
 // ====================================================================
-// VARIÁVEIS DE AUTENTICAÇÃO E PERMISSÕES
+// AUTENTICAÇÃO E PERMISSÕES (apenas para ocorrências)
 // ====================================================================
-const ROLES_ALLOWED_INSPECTION = ['INSPETOR', 'ENCARREGADO', 'ADMIN', 'GERENTE', 'FISCAL', 'PLANTONISTA'];
 let currentUserRole = '';
-let canCreateInspection = false;
 
 // ====================================================================
-// VERIFICAR STATUS DE LOGIN (VERSÃO CORRIGIDA - SEM ERRO DE SINTAXE)
+// VERIFICAR STATUS DE LOGIN
 // ====================================================================
 async function checkLoginStatus() {
   const logado = localStorage.getItem('inspectorLoggedIn');
@@ -15,8 +13,7 @@ async function checkLoginStatus() {
   const roleSalva = localStorage.getItem('inspectorRole');
   const main = getEl('main-screen');
   const insp = getEl('inspector-screen');
-  const btnInspecao = getEl('btn-inspecao-veicular');
-  const btnEnvio = getEl('btn-envio-informacoes');
+  const btnOcorrencia = getEl('btn-ocorrencia');
   
   if (logado === 'true' && nome && apelido) {
     let role = roleSalva;
@@ -35,15 +32,9 @@ async function checkLoginStatus() {
     }
     
     currentUserRole = role;
-    canCreateInspection = (role === 'FISCAL' || role === 'INSPETOR');
     
-    if (btnInspecao && role !== 'MONITOR') btnInspecao.style.display = 'flex';
-    else if (btnInspecao) btnInspecao.style.display = 'none';
-    
-    if (btnEnvio && role !== 'MONITOR') btnEnvio.style.display = 'flex';
-    else if (btnEnvio) btnEnvio.style.display = 'none';
-    
-    ajustarCardsPorPerfil(role);
+    // Exibe o botão de ocorrência para todos os perfis logados
+    if (btnOcorrencia) btnOcorrencia.style.display = 'flex';
     
     main.style.display = 'none';
     insp.style.display = 'flex';
@@ -51,11 +42,6 @@ async function checkLoginStatus() {
     
     const logoutBtn = insp.querySelector('.logout-btn');
     if (logoutBtn) logoutBtn.innerHTML = `Sair<small>${apelido}</small>`;
-    
-    // Carrega avisos personalizados (admin.js)
-    if (typeof carregarAvisosPublicos === 'function') {
-      carregarAvisosPublicos();
-    }
     
   } else {
     // Usuário não logado
@@ -69,7 +55,7 @@ async function checkLoginStatus() {
 }
 
 // ====================================================================
-// LOGIN (mantido igual, mas com refreshInspetores opcional após sucesso)
+// LOGIN (JSONP)
 // ====================================================================
 async function login(e) {
   e.preventDefault();
@@ -119,7 +105,19 @@ async function login(e) {
 }
 
 // ====================================================================
-// DEMAIS FUNÇÕES (logout, toast, banner, etc.)
+// REGISTRAR LOG (opcional)
+// ====================================================================
+async function registrarLog(nomeApelido) {
+  try {
+    const formData = new URLSearchParams();
+    formData.append("nome", nomeApelido);
+    formData.append("acao", "Login bem-sucedido");
+    await fetch(URL_PLANILHA, { method: "POST", body: formData, mode: "no-cors" });
+  } catch (err) { console.warn("Falha ao registrar log:", err); }
+}
+
+// ====================================================================
+// LOGOUT
 // ====================================================================
 function logoutInspector() {
   localStorage.removeItem('inspectorLoggedIn');
@@ -129,6 +127,9 @@ function logoutInspector() {
   checkLoginStatus();
 }
 
+// ====================================================================
+// TOAST DE BOAS-VINDAS
+// ====================================================================
 function showWelcomeToast(apelido) {
   const toast = getEl('welcome-toast');
   if (!toast) return;
@@ -141,47 +142,27 @@ function showWelcomeToast(apelido) {
 
 function hideWelcomeToast() { const t = getEl('welcome-toast'); if (t) t.classList.remove('show'); }
 
-function aplicarBloqueioDeDatas() {
-  const now = new Date();
-  for (const [id, date] of Object.entries(disableDates)) {
-    const btn = getEl(id);
-    if (btn && now < date) {
-      btn.classList.add('disabled');
-      btn.setAttribute('href', '#');
-      btn.title = `Disponível a partir de ${date.toLocaleDateString('pt-BR')}`;
-      btn.style.pointerEvents = 'none';
-      btn.style.opacity = '0.45';
-    }
-  }
+// ====================================================================
+// TEMA (escuro/claro) – função auxiliar para o main
+// ====================================================================
+function initTheme() {
+  const tt = getEl('theme-toggle');
+  if (!tt) return;
+  const saved = localStorage.getItem("theme") || "light";
+  applyTheme(saved);
+  tt.addEventListener("click", () => {
+    const cur = localStorage.getItem("theme") === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", cur);
+    applyTheme(cur);
+  });
 }
 
-function fecharBanner() { const b = getEl('aviso-temporario'); if (b) b.style.display = 'none'; }
-
-function mostrarBannerAviso() {
-  const agora = new Date();
-  const banner = getEl('aviso-temporario');
-  if (banner) banner.style.display = (agora >= DATA_INICIO_BANNER && agora < DATA_FIM_BANNER) ? 'flex' : 'none';
-}
-
-// ====================================================================
-// AJUSTAR VISIBILIDADE DOS CARDS CONFORME PERFIL
-// ====================================================================
-function ajustarCardsPorPerfil(role) {
-  const todosCards = document.querySelectorAll('#inspector-screen .inspector-card');
-  const cardInspecao = document.getElementById('btn-inspecao-veicular');
-  const cardEnvio = document.getElementById('btn-envio-informacoes');
-  
-  if (role === 'FISCAL') {
-    todosCards.forEach(card => {
-      if (card === cardInspecao || card === cardEnvio) {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = 'none';
-      }
-    });
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.body.classList.add("dark");
+    getEl('theme-toggle').innerHTML = "☀️";
   } else {
-    todosCards.forEach(card => {
-      card.style.display = 'flex';
-    });
+    document.body.classList.remove("dark");
+    getEl('theme-toggle').innerHTML = "🌙";
   }
 }
