@@ -1,5 +1,5 @@
 // ====================================================================
-// AUTENTICAÇÃO E PERMISSÕES (apenas para ocorrências)
+// AUTENTICAÇÃO E PERMISSÕES
 // ====================================================================
 let currentUserRole = '';
 
@@ -10,41 +10,20 @@ async function checkLoginStatus() {
   const logado = localStorage.getItem('inspectorLoggedIn');
   const nome = localStorage.getItem('inspectorName');
   const apelido = localStorage.getItem('inspectorApelido');
-  const roleSalva = localStorage.getItem('inspectorRole');
+  const role = localStorage.getItem('inspectorRole');
   const main = getEl('main-screen');
   const insp = getEl('inspector-screen');
   const btnOcorrencia = getEl('btn-ocorrencia');
   
-  if (logado === 'true' && nome && apelido) {
-    let role = roleSalva;
-    
-    if (INSPETORES[apelido]) {
-      const roleFromServer = INSPETORES[apelido].funcao;
-      if (roleFromServer !== role) {
-        role = roleFromServer;
-        localStorage.setItem('inspectorRole', role);
-      }
-    }
-    
-    if (!role) {
-      logoutInspector();
-      return;
-    }
-    
+  if (logado === 'true' && nome && apelido && role) {
     currentUserRole = role;
-    
-    // Exibe o botão de ocorrência para todos os perfis logados
     if (btnOcorrencia) btnOcorrencia.style.display = 'flex';
-    
     main.style.display = 'none';
     insp.style.display = 'flex';
     showWelcomeToast(apelido);
-    
     const logoutBtn = insp.querySelector('.logout-btn');
     if (logoutBtn) logoutBtn.innerHTML = `Sair<small>${apelido}</small>`;
-    
   } else {
-    // Usuário não logado
     localStorage.removeItem('inspectorLoggedIn');
     localStorage.removeItem('inspectorName');
     localStorage.removeItem('inspectorApelido');
@@ -55,7 +34,7 @@ async function checkLoginStatus() {
 }
 
 // ====================================================================
-// LOGIN (JSONP)
+// LOGIN (JSONP) – SEM CHAMAR refreshInspetores
 // ====================================================================
 async function login(e) {
   e.preventDefault();
@@ -70,7 +49,7 @@ async function login(e) {
 
   const callbackName = 'loginCallback_' + Date.now();
   
-  window[callbackName] = async function(resposta) {
+  window[callbackName] = function(resposta) {
     delete window[callbackName];
     btnSubmit.innerHTML = textoOriginal;
     btnSubmit.disabled = false;
@@ -81,11 +60,11 @@ async function login(e) {
       localStorage.setItem('inspectorApelido', resposta.apelido);
       localStorage.setItem('inspectorRole', resposta.funcao);
       
-      await refreshInspetores();
-      
+      // Opcional: registrar log (não interfere no login)
       registrarLog(resposta.apelido);
+      
       window.modals.login.close();
-      checkLoginStatus();
+      checkLoginStatus(); // agora não depende de INSPETORES
     } else {
       errorMsg.style.display = 'block';
       getEl('password').value = '';
@@ -143,7 +122,7 @@ function showWelcomeToast(apelido) {
 function hideWelcomeToast() { const t = getEl('welcome-toast'); if (t) t.classList.remove('show'); }
 
 // ====================================================================
-// TEMA (escuro/claro) – função auxiliar para o main
+// TEMA (escuro/claro)
 // ====================================================================
 function initTheme() {
   const tt = getEl('theme-toggle');
