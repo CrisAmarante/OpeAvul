@@ -1,14 +1,14 @@
 {
-  "name": "Testes de campo",
-  "short_name": "PENSO",
-  "description": "Prancheta eletrônica -Desenvolvimento",
-  "id": "/testesavul/",
+  "name": "PENSO - Registro de Ocorrências",
+  "short_name": "PENSO Ocorrências",
+  "description": "Aplicação para registro e acompanhamento de ocorrências operacionais",
+  "id": "/penso-ocorrencias/",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#d11a2d",
   "theme_color": "#d11a2d",
   "orientation": "portrait-primary",
-  "version": "2026.05.13-vs3.1.3",
+  "version": "2026.05.20-v1",
   "icons": [
     {
       "src": "icon.png",
