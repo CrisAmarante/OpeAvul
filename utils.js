@@ -5,7 +5,7 @@ function logDebug(...args) { console.log('[PENSO]', ...args); }
 function getEl(id) { return document.getElementById(id); }
 
 // ====================================================================
-// HASH
+// HASH (necessário para autenticação)
 // ====================================================================
 async function hashPassword(password, salt) {
   const encoder = new TextEncoder();
@@ -16,7 +16,7 @@ async function hashPassword(password, salt) {
 }
 
 // ====================================================================
-// MODAL
+// MODAL CONTROLLER
 // ====================================================================
 class ModalController {
   constructor(modalId) {
@@ -53,7 +53,7 @@ class ModalController {
 }
 
 // ====================================================================
-// UTILITÁRIO DE FORMATAÇÃO DE DATA E HORA
+// FORMATAÇÃO DE DATA E HORA
 // ====================================================================
 function formatarData(data) {
   if (!data) return 'N/I';
@@ -75,6 +75,7 @@ function formatarData(data) {
   if (match) return match[0];
   return 'N/I';
 }
+
 function formatarHora(hora) {
   if (!hora) return 'N/I';
   if (hora instanceof Date) {
