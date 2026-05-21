@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PENSO - Ocorrências</title>
+    <title>PENSO - Registro de Ocorrências</title>
     <link rel="icon" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=20260331">
+    <link rel="stylesheet" href="styles.css">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -17,79 +17,40 @@
 
 <button id="theme-toggle" class="theme-toggle" aria-label="Alternar tema">🌙</button>
 
-<h1 class="titulo"><i class="fas fa-clipboard-list"></i> PENSO - Ocorrências</h1>
+<div class="app-container">
+    <h1 class="titulo"><i class="fas fa-clipboard-list"></i> PENSO - Ocorrências</h1>
 
-<!-- TELA INICIAL (NÃO LOGADA) -->
-<div id="main-screen" class="screen-container">
-    <div class="grid-panel">
-        <div class="cards-grid">
-            <a href="#" id="btn-segunda-tela" class="card card-inspetores">
-                <div class="card-icon"><i class="fa-solid fa-key"></i></div>
-                Área logada
-            </a>
+    <!-- Painel de Autenticação (visível enquanto não logado) -->
+    <div id="auth-panel" class="auth-panel">
+        <div class="auth-card">
+            <h3><i class="fas fa-lock"></i> Autenticação Necessária</h3>
+            <div class="form-row">
+                <div class="field">
+                    <label>Chapa (funcional)</label>
+                    <input type="text" id="auth-chapa" placeholder="Digite sua chapa" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label>PIN</label>
+                    <input type="password" id="auth-pin" placeholder="Digite seu PIN">
+                </div>
+            </div>
+            <div id="auth-error" class="error-message" style="display:none;"></div>
+            <button id="btn-autenticar" class="btn-principal" style="width:100%">🔓 Autenticar</button>
         </div>
     </div>
-</div>
 
-<!-- TELA DE INSPETORES (LOGADA) -->
-<div id="inspector-screen" class="screen-container" style="display: none;">
-    <div class="grid-panel">
-        <div class="cards-grid">
-            <a href="#" id="btn-ocorrencia" class="inspector-card">
-                <div class="card-icon"><i class="fas fa-file-alt"></i></div>
-                Registro de Ocorrência
-            </a>
-        </div>
-    </div>
-    <button onclick="logoutInspector()" class="logout-btn">Sair</button>
-</div>
-
-<!-- TOAST -->
-<div id="welcome-toast"><div>Bem-vindo, <span id="toast-name" class="toast-name"></span>!</div><button class="toast-close" onclick="hideWelcomeToast()">×</button></div>
-
-<!-- MODAL DE LOGIN -->
-<div id="modal-login" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="modal-title">🔐 Área logada</h2>
-            <button class="modal-close" onclick="window.modals.login.close()">×</button>
-        </div>
-        <form id="login-form">
-            <input type="password" id="password" placeholder="Digite seu pin exclusivo" required>
-            <div id="login-error" style="color:#ff4d4d; text-align:center; margin:10px 0; display:none;">Senha incorreta!</div>
-            <button type="submit" class="button">Entrar</button>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL OCORRÊNCIA -->
-<div id="modal-ocorrencia" class="modal">
-    <div class="modal-content" style="max-width: 950px; width: 95%; max-height: 85vh; overflow-y: auto;">
-        <div class="modal-header">
-            <h2 class="modal-title">📝 Registro de Ocorrência</h2>
-            <button class="modal-close" onclick="fecharModalOcorrencia()">×</button>
-        </div>
+    <!-- Conteúdo principal (formulário de ocorrência) -->
+    <div id="conteudo-principal" style="display: none;">
         <div id="ocorrencia-form"></div>
-        <div id="lista-rascunhos-container" style="margin-top: 15px;"></div>
+        <div id="lista-rascunhos-container"></div>
         <div class="action-buttons" style="margin-top: 20px; display: flex; gap: 12px;">
-            <button type="button" id="btn-salvar-rascunho-ocorrencia" class="btn-secundario" style="flex:1;" onclick="salvarRascunhoOcorrencia()">💾 Salvar Rascunho</button>
-            <button type="button" id="btn-enviar-ocorrencia" class="btn-principal" style="flex:2;" onclick="enviarOcorrencia()">📤 Finalizar Ocorrência</button>
+            <button id="btn-salvar-rascunho-ocorrencia" class="btn-secundario" style="flex:1;">💾 Salvar Rascunho</button>
+            <button id="btn-enviar-ocorrencia" class="btn-principal" style="flex:2;">📤 Finalizar Ocorrência</button>
         </div>
+        <button id="btn-logout" class="logout-btn" style="margin-top: 30px;">Sair</button>
     </div>
 </div>
 
-<!-- MODAL LISTA DE OCORRÊNCIAS (OPCIONAL) -->
-<div id="modal-lista-ocorrencias" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="modal-title">📋 Ocorrências Finalizadas</h2>
-            <button class="modal-close" onclick="fecharModalListaOcorrencias()">×</button>
-        </div>
-        <div id="lista-ocorrencias-container"></div>
-    </div>
-</div>
-
-<!-- SCRIPTS -->
 <script src="config.js"></script>
 <script src="utils.js"></script>
 <script src="api.js"></script>
