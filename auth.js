@@ -1,147 +1,95 @@
 // ====================================================================
-// AUTENTICAÇÃO E PERMISSÕES
+// AUTENTICAÇÃO POR CHAPA (COLUNA A DA PLANILHA login) E PIN
 // ====================================================================
-let currentUserRole = '';
+let currentUser = null;
 
-// ====================================================================
-// VERIFICAR STATUS DE LOGIN
-// ====================================================================
-async function checkLoginStatus() {
-  const logado = localStorage.getItem('inspectorLoggedIn');
-  const nome = localStorage.getItem('inspectorName');
-  const apelido = localStorage.getItem('inspectorApelido');
-  const role = localStorage.getItem('inspectorRole');
-  const main = getEl('main-screen');
-  const insp = getEl('inspector-screen');
-  const btnOcorrencia = getEl('btn-ocorrencia');
-  
-  if (logado === 'true' && nome && apelido && role) {
-    currentUserRole = role;
-    if (btnOcorrencia) btnOcorrencia.style.display = 'flex';
-    main.style.display = 'none';
-    insp.style.display = 'flex';
-    showWelcomeToast(apelido);
-    const logoutBtn = insp.querySelector('.logout-btn');
-    if (logoutBtn) logoutBtn.innerHTML = `Sair<small>${apelido}</small>`;
-  } else {
-    localStorage.removeItem('inspectorLoggedIn');
-    localStorage.removeItem('inspectorName');
-    localStorage.removeItem('inspectorApelido');
-    localStorage.removeItem('inspectorRole');
-    main.style.display = 'flex';
-    insp.style.display = 'none';
-  }
+function autenticarUsuario(chapa, pin) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'authCallback_' + Date.now();
+        window[callbackName] = function(resposta) {
+            delete window[callbackName];
+            if (resposta && resposta.sucesso) {
+                resolve({
+                    apelido: resposta.apelido,
+                    nome: resposta.nome,
+                    funcao: resposta.funcao,
+                    chapa: resposta.chapa
+                });
+            } else {
+                reject(new Error(resposta?.erro || 'Credenciais inválidas'));
+            }
+        };
+        // Chama o backend com ação login, passando chapa e senha
+        const url = `${URL_PLANILHA}?acao=login&chapa=${encodeURIComponent(chapa)}&senha=${encodeURIComponent(pin)}&callback=${callbackName}`;
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = () => reject(new Error('Erro de conexão com o servidor'));
+        document.body.appendChild(script);
+    });
 }
 
-// ====================================================================
-// LOGIN (JSONP) – SEM CHAMAR refreshInspetores
-// ====================================================================
-async function login(e) {
-  e.preventDefault();
-  const senha = getEl('password').value.trim();
-  const errorMsg = getEl('login-error');
-  const btnSubmit = e.target.querySelector('button[type="submit"]');
-  
-  const textoOriginal = btnSubmit.innerHTML;
-  btnSubmit.innerHTML = 'Verificando...';
-  btnSubmit.disabled = true;
-  errorMsg.style.display = 'none';
-
-  const callbackName = 'loginCallback_' + Date.now();
-  
-  window[callbackName] = function(resposta) {
-    delete window[callbackName];
-    btnSubmit.innerHTML = textoOriginal;
-    btnSubmit.disabled = false;
-
-    if (resposta && resposta.sucesso) {
-      localStorage.setItem('inspectorLoggedIn', 'true');
-      localStorage.setItem('inspectorName', resposta.nome);
-      localStorage.setItem('inspectorApelido', resposta.apelido);
-      localStorage.setItem('inspectorRole', resposta.funcao);
-      
-      // Opcional: registrar log (não interfere no login)
-      registrarLog(resposta.apelido);
-      
-      window.modals.login.close();
-      checkLoginStatus(); // agora não depende de INSPETORES
-    } else {
-      errorMsg.style.display = 'block';
-      getEl('password').value = '';
-      getEl('password').focus();
-    }
-  };
-
-  const script = document.createElement('script');
-  script.src = `${URL_PLANILHA}?acao=login&senha=${encodeURIComponent(senha)}&callback=${callbackName}`;
-  script.onerror = () => {
-    delete window[callbackName];
-    btnSubmit.innerHTML = textoOriginal;
-    btnSubmit.disabled = false;
-    alert('Erro de conexão. Verifique sua internet.');
-  };
-  document.body.appendChild(script);
+// Função chamada pelo clique no botão "Autenticar"
+function inicializarEventoAutenticacao() {
+    const btn = document.getElementById('btn-autenticar');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const chapa = document.getElementById('auth-chapa').value.trim();
+        const pin = document.getElementById('auth-pin').value.trim();
+        const errorDiv = document.getElementById('auth-error');
+        if (!chapa || !pin) {
+            errorDiv.textContent = 'Preencha a chapa e o PIN.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        errorDiv.style.display = 'none';
+        btn.disabled = true;
+        btn.textContent = 'Autenticando...';
+        try {
+            const user = await autenticarUsuario(chapa, pin);
+            window.currentUser = user;
+            sessionStorage.setItem('userAutenticado', JSON.stringify(user));
+            habilitarFormularioOcorrencia();
+            mostrarPainelAutenticacao(false);
+            const respField = document.getElementById('ocorrencia-criado-por');
+            if (respField) respField.value = user.apelido || user.nome;
+            if (typeof carregarListaRascunhos === 'function') carregarListaRascunhos();
+            // Limpa campos de autenticação
+            document.getElementById('auth-chapa').value = '';
+            document.getElementById('auth-pin').value = '';
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔓 Autenticar';
+        }
+    });
 }
 
-// ====================================================================
-// REGISTRAR LOG (opcional)
-// ====================================================================
-async function registrarLog(nomeApelido) {
-  try {
-    const formData = new URLSearchParams();
-    formData.append("nome", nomeApelido);
-    formData.append("acao", "Login bem-sucedido");
-    await fetch(URL_PLANILHA, { method: "POST", body: formData, mode: "no-cors" });
-  } catch (err) { console.warn("Falha ao registrar log:", err); }
+// Funções auxiliares de controle de UI (definidas globalmente)
+function desabilitarFormularioOcorrencia(desabilitar) {
+    const container = document.getElementById('ocorrencia-form');
+    if (!container) return;
+    const elementos = container.querySelectorAll('input, select, textarea, button');
+    elementos.forEach(el => el.disabled = desabilitar);
+    const btnSalvar = document.getElementById('btn-salvar-rascunho-ocorrencia');
+    const btnEnviar = document.getElementById('btn-enviar-ocorrencia');
+    if (btnSalvar) btnSalvar.disabled = desabilitar;
+    if (btnEnviar) btnEnviar.disabled = desabilitar;
 }
 
-// ====================================================================
-// LOGOUT
-// ====================================================================
-function logoutInspector() {
-  localStorage.removeItem('inspectorLoggedIn');
-  localStorage.removeItem('inspectorName');
-  localStorage.removeItem('inspectorApelido');
-  localStorage.removeItem('inspectorRole');
-  checkLoginStatus();
+function habilitarFormularioOcorrencia() {
+    desabilitarFormularioOcorrencia(false);
 }
 
-// ====================================================================
-// TOAST DE BOAS-VINDAS
-// ====================================================================
-function showWelcomeToast(apelido) {
-  const toast = getEl('welcome-toast');
-  if (!toast) return;
-  getEl('toast-name').textContent = apelido;
-  toast.classList.add('show');
-  setTimeout(() => hideWelcomeToast(), 3500);
-  const clickHandler = () => { hideWelcomeToast(); document.removeEventListener('click', clickHandler); };
-  setTimeout(() => document.addEventListener('click', clickHandler), 300);
+function mostrarPainelAutenticacao(mostrar) {
+    const authPanel = document.getElementById('auth-panel');
+    const conteudo = document.getElementById('conteudo-principal');
+    if (authPanel) authPanel.style.display = mostrar ? 'flex' : 'none';
+    if (conteudo) conteudo.style.display = mostrar ? 'none' : 'block';
 }
 
-function hideWelcomeToast() { const t = getEl('welcome-toast'); if (t) t.classList.remove('show'); }
-
-// ====================================================================
-// TEMA (escuro/claro)
-// ====================================================================
-function initTheme() {
-  const tt = getEl('theme-toggle');
-  if (!tt) return;
-  const saved = localStorage.getItem("theme") || "light";
-  applyTheme(saved);
-  tt.addEventListener("click", () => {
-    const cur = localStorage.getItem("theme") === "dark" ? "light" : "dark";
-    localStorage.setItem("theme", cur);
-    applyTheme(cur);
-  });
-}
-
-function applyTheme(theme) {
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-    getEl('theme-toggle').innerHTML = "☀️";
-  } else {
-    document.body.classList.remove("dark");
-    getEl('theme-toggle').innerHTML = "🌙";
-  }
-}
+// Inicializa o evento de autenticação após o DOM carregar
+document.addEventListener('DOMContentLoaded', () => {
+    inicializarEventoAutenticacao();
+});
