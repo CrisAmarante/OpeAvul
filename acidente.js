@@ -33,7 +33,8 @@ function initAcidenteModal() {
   if (btnAdicionarTestemunha) btnAdicionarTestemunha.addEventListener('click', () => adicionarPessoa('Testemunha'));
   if (btnAnexarPrincipal) btnAnexarPrincipal.addEventListener('click', anexarArquivosPrincipais);
 
-  const autoSaveFields = ['acidente-data', 'acidente-hora', 'acidente-local', 'acidente-prefixo', 'acidente-motorista', 'acidente-descricao'];
+  // Auto-save para campos principais da aba Cadastro
+  const autoSaveFields = ['cadastro-data-hora', 'onibus-prefixo', 'motorista-chapa', 'motorista-historico'];
   autoSaveFields.forEach(id => {
     const el = getEl(id);
     if (el) el.addEventListener('input', debounce(salvarRascunhoAcidente, 800));
@@ -97,12 +98,27 @@ function iniciarNovoAcidente() {
 }
 
 function limparFormularioAcidente() {
-  getEl('acidente-data').value = '';
-  getEl('acidente-hora').value = '';
-  getEl('acidente-local').value = '';
-  getEl('acidente-prefixo').value = '';
-  getEl('acidente-motorista').value = '';
-  getEl('acidente-descricao').value = '';
+  // Limpa campos da aba Cadastro de Acidente
+  const camposCadastro = [
+    'cadastro-data-hora', 'cadastro-tipo-acidente', 'cadastro-logradouro',
+    'cadastro-bairro', 'cadastro-cidade', 'cadastro-cep',
+    'linha-codigo', 'linha-nome', 'linha-sentido',
+    'onibus-prefixo', 'onibus-placa', 'onibus-renavan', 'onibus-ano',
+    'onibus-marca', 'onibus-modelo', 'onibus-cor', 'onibus-cidade',
+    'motorista-chapa', 'motorista-apelido', 'motorista-nome',
+    'motorista-cnh', 'motorista-cnh-validade',
+    'motorista-logradouro', 'motorista-bairro', 'motorista-cidade', 'motorista-complemento',
+    'motorista-nascimento', 'motorista-naturalidade', 'motorista-mae', 'motorista-celular',
+    'motorista-historico', 'motorista-cnh-foto'
+  ];
+  camposCadastro.forEach(id => {
+    const el = getEl(id);
+    if (el) el.value = '';
+  });
+  
+  // Limpa checkboxes
+  const checkboxes = document.querySelectorAll('#aba-cadastro input[type="checkbox"], #aba-cadastro input[type="radio"]');
+  checkboxes.forEach(cb => cb.checked = false);
 }
 
 // ====================================================================
@@ -126,12 +142,45 @@ function carregarRascunhoLocal() {
 }
 
 function preencherFormularioComDados(dados) {
-  getEl('acidente-data').value = dados.dataAcidente || '';
-  getEl('acidente-hora').value = dados.horaAcidente || '';
-  getEl('acidente-local').value = dados.local || '';
-  getEl('acidente-prefixo').value = dados.prefixo || '';
-  getEl('acidente-motorista').value = dados.motoristaChapa || '';
-  getEl('acidente-descricao').value = dados.descricaoAnalise || '';
+  // Preenche campos da aba Cadastro de Acidente
+  const camposMap = {
+    'cadastro-data-hora': dados.dataAcidente || '',
+    'cadastro-tipo-acidente': dados.tipoAcidente || '',
+    'cadastro-logradouro': dados.logradouro || '',
+    'cadastro-bairro': dados.bairro || '',
+    'cadastro-cidade': dados.cidade || '',
+    'cadastro-cep': dados.cep || '',
+    'linha-codigo': dados.linhaCodigo || '',
+    'linha-nome': dados.linhaNome || '',
+    'linha-sentido': dados.linhaSentido || '',
+    'onibus-prefixo': dados.prefixo || '',
+    'onibus-placa': dados.onibusPlaca || '',
+    'onibus-renavan': dados.onibusRenavan || '',
+    'onibus-ano': dados.onibusAno || '',
+    'onibus-marca': dados.onibusMarca || '',
+    'onibus-modelo': dados.onibusModelo || '',
+    'onibus-cor': dados.onibusCor || '',
+    'onibus-cidade': dados.onibusCidade || '',
+    'motorista-chapa': dados.motoristaChapa || '',
+    'motorista-apelido': dados.motoristaApelido || '',
+    'motorista-nome': dados.motoristaNome || '',
+    'motorista-cnh': dados.motoristaCNH || '',
+    'motorista-cnh-validade': dados.motoristaCNHValidade || '',
+    'motorista-logradouro': dados.motoristaLogradouro || '',
+    'motorista-bairro': dados.motoristaBairro || '',
+    'motorista-cidade': dados.motoristaCidade || '',
+    'motorista-complemento': dados.motoristaComplemento || '',
+    'motorista-nascimento': dados.motoristaNascimento || '',
+    'motorista-naturalidade': dados.motoristaNaturalidade || '',
+    'motorista-mae': dados.motoristaMae || '',
+    'motorista-celular': dados.motoristaCelular || '',
+    'motorista-historico': dados.descricaoAnalise || ''
+  };
+  
+  Object.entries(camposMap).forEach(([id, valor]) => {
+    const el = getEl(id);
+    if (el) el.value = valor;
+  });
 }
 
 function salvarRascunhoLocal() {
@@ -144,16 +193,44 @@ function salvarRascunhoLocal() {
 // MONTAR OBJETO ACIDENTE
 // ====================================================================
 function montarObjetoAcidente() {
+  // Monta objeto com dados de todas as abas
   return {
     id: acidenteAtualId,
     status: editMode ? originalStatus : 'EM_ANDAMENTO',
     fiscal: localStorage.getItem('inspectorApelido'),
-    dataAcidente: getEl('acidente-data').value,
-    horaAcidente: getEl('acidente-hora').value,
-    local: getEl('acidente-local').value,
-    prefixo: getEl('acidente-prefixo').value,
-    motoristaChapa: getEl('acidente-motorista').value,
-    descricaoAnalise: getEl('acidente-descricao').value,
+    // Aba 1 - Cadastro
+    dataAcidente: getEl('cadastro-data-hora')?.value || '',
+    tipoAcidente: document.querySelector('input[name="tipo-acidente"]:checked')?.value || '',
+    logradouro: getEl('cadastro-logradouro')?.value || '',
+    bairro: getEl('cadastro-bairro')?.value || '',
+    cidade: getEl('cadastro-cidade')?.value || '',
+    cep: getEl('cadastro-cep')?.value || '',
+    linhaCodigo: getEl('linha-codigo')?.value || '',
+    linhaNome: getEl('linha-nome')?.value || '',
+    linhaSentido: getEl('linha-sentido')?.value || '',
+    prefixo: getEl('onibus-prefixo')?.value || '',
+    onibusPlaca: getEl('onibus-placa')?.value || '',
+    onibusRenavan: getEl('onibus-renavan')?.value || '',
+    onibusAno: getEl('onibus-ano')?.value || '',
+    onibusMarca: getEl('onibus-marca')?.value || '',
+    onibusModelo: getEl('onibus-modelo')?.value || '',
+    onibusCor: getEl('onibus-cor')?.value || '',
+    onibusCidade: getEl('onibus-cidade')?.value || '',
+    motoristaChapa: getEl('motorista-chapa')?.value || '',
+    motoristaApelido: getEl('motorista-apelido')?.value || '',
+    motoristaNome: getEl('motorista-nome')?.value || '',
+    motoristaCNH: getEl('motorista-cnh')?.value || '',
+    motoristaCNHValidade: getEl('motorista-cnh-validade')?.value || '',
+    motoristaLogradouro: getEl('motorista-logradouro')?.value || '',
+    motoristaBairro: getEl('motorista-bairro')?.value || '',
+    motoristaCidade: getEl('motorista-cidade')?.value || '',
+    motoristaComplemento: getEl('motorista-complemento')?.value || '',
+    motoristaNascimento: getEl('motorista-nascimento')?.value || '',
+    motoristaNaturalidade: getEl('motorista-naturalidade')?.value || '',
+    motoristaMae: getEl('motorista-mae')?.value || '',
+    motoristaCelular: getEl('motorista-celular')?.value || '',
+    descricaoAnalise: getEl('motorista-historico')?.value || '',
+    // Demais dados
     anexosPrincipais: anexosPrincipaisArray,
     bens: bensArray,
     pessoas: pessoasArray,
@@ -438,12 +515,10 @@ async function carregarAcidenteExistente(id) {
   acidenteAtualId = acidente.id;
   originalStatus = acidente.status;
   editMode = true;
-  getEl('acidente-data').value = acidente.dataAcidente || '';
-  getEl('acidente-hora').value = acidente.horaAcidente || '';
-  getEl('acidente-local').value = acidente.local || '';
-  getEl('acidente-prefixo').value = acidente.prefixo || '';
-  getEl('acidente-motorista').value = acidente.motoristaChapa || '';
-  getEl('acidente-descricao').value = acidente.descricaoAnalise || '';
+  
+  // Preenche formulário com dados do acidente (usando função existente)
+  preencherFormularioComDados(acidente);
+  
   bensArray = acidente.bens || [];
   pessoasArray = acidente.pessoas || [];
   anexosPrincipaisArray = acidente.anexosPrincipais || [];
@@ -480,11 +555,9 @@ function habilitarEdicao() {
 // AUTOCOMPLETE
 // ====================================================================
 function iniciarAutoComplete() {
-  const prefixoInput = getEl('acidente-prefixo');
-  const motoristaInput = getEl('acidente-motorista');
-  const datalistVeiculos = getEl('lista-veiculos');
-  const datalistMotoristas = getEl('lista-motoristas');
-  if (prefixoInput && datalistVeiculos) {
+  // Auto-complete para prefixo do ônibus (busca dados ao digitar)
+  const prefixoInput = getEl('onibus-prefixo');
+  if (prefixoInput) {
     prefixoInput.addEventListener('input', debounce(async function() {
       const termo = this.value;
       if (termo.length < 2) return;
@@ -493,14 +566,22 @@ function iniciarAutoComplete() {
         const resp = await fetch(url);
         const veiculo = await resp.json();
         if (veiculo && veiculo.prefixo) {
-          datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modeloChassi || ''}</option>`;
-        } else {
-          datalistVeiculos.innerHTML = '';
+          // Preenche campos automaticamente
+          if (getEl('onibus-placa')) getEl('onibus-placa').value = veiculo.placa || '';
+          if (getEl('onibus-renavan')) getEl('onibus-renavan').value = veiculo.renavam || '';
+          if (getEl('onibus-ano')) getEl('onibus-ano').value = veiculo.ano || '';
+          if (getEl('onibus-marca')) getEl('onibus-marca').value = veiculo.marca || '';
+          if (getEl('onibus-modelo')) getEl('onibus-modelo').value = veiculo.modeloChassi || '';
+          if (getEl('onibus-cor')) getEl('onibus-cor').value = veiculo.cor || '';
+          if (getEl('onibus-cidade')) getEl('onibus-cidade').value = veiculo.cidade || '';
         }
       } catch(e) { console.warn(e); }
     }, 500));
   }
-  if (motoristaInput && datalistMotoristas) {
+  
+  // Auto-complete para chapa do motorista (busca dados ao digitar)
+  const motoristaInput = getEl('motorista-chapa');
+  if (motoristaInput) {
     motoristaInput.addEventListener('input', debounce(async function() {
       const termo = this.value;
       if (termo.length < 2) return;
@@ -508,10 +589,21 @@ function iniciarAutoComplete() {
       try {
         const resp = await fetch(url);
         const operadores = await resp.json();
-        if (operadores && operadores.length) {
-          datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
-        } else {
-          datalistMotoristas.innerHTML = '';
+        if (operadores && operadores.length > 0) {
+          const op = operadores[0];
+          // Preenche campos automaticamente
+          if (getEl('motorista-apelido')) getEl('motorista-apelido').value = op.apelido || '';
+          if (getEl('motorista-nome')) getEl('motorista-nome').value = op.nome || '';
+          if (getEl('motorista-cnh')) getEl('motorista-cnh').value = op.cnh || '';
+          if (getEl('motorista-cnh-validade')) getEl('motorista-cnh-validade').value = op.cnhValidade || '';
+          if (getEl('motorista-logradouro')) getEl('motorista-logradouro').value = op.logradouro || '';
+          if (getEl('motorista-bairro')) getEl('motorista-bairro').value = op.bairro || '';
+          if (getEl('motorista-cidade')) getEl('motorista-cidade').value = op.cidade || '';
+          if (getEl('motorista-complemento')) getEl('motorista-complemento').value = op.complemento || '';
+          if (getEl('motorista-nascimento')) getEl('motorista-nascimento').value = op.nascimento || '';
+          if (getEl('motorista-naturalidade')) getEl('motorista-naturalidade').value = op.naturalidade || '';
+          if (getEl('motorista-mae')) getEl('motorista-mae').value = op.mae || '';
+          if (getEl('motorista-celular')) getEl('motorista-celular').value = op.celular || '';
         }
       } catch(e) { console.warn(e); }
     }, 500));
@@ -600,10 +692,11 @@ function debounce(func, wait) {
 // UTILITÁRIOS
 // ====================================================================
 function preencherDataAtual() {
-  const dataInput = getEl('acidente-data');
+  const dataInput = getEl('cadastro-data-hora');
   if (dataInput && !dataInput.value) {
     const hoje = new Date().toISOString().split('T')[0];
-    dataInput.value = hoje;
+    const hora = new Date().toTimeString().split(' ')[0].substring(0,5);
+    dataInput.value = `${hoje}T${hora}`;
   }
 }
 
