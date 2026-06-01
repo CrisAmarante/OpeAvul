@@ -78,53 +78,323 @@
     
     <!-- Abas -->
     <div class="tabs-container">
-      <button class="tab-btn active" data-tab="analise">📋 Análise do acidente</button>
-      <button class="tab-btn" data-tab="bens">🚗 Bens avariados</button>
-      <button class="tab-btn" data-tab="pessoas">👥 Vítimas e testemunhas</button>
+      <button class="tab-btn active" data-tab="cadastro">📋 Cadastro</button>
+      <button class="tab-btn" data-tab="analise">🔍 Análise</button>
+      <button class="tab-btn" data-tab="bens">🚗 Bens</button>
+      <button class="tab-btn" data-tab="vitimas">👥 Vítimas</button>
+      <button class="tab-btn" data-tab="testemunhas">🗣️ Testemunhas</button>
+      <button class="tab-btn" data-tab="parecer">📝 Parecer</button>
     </div>
     
-    <!-- ABA 1: Análise do acidente -->
-    <div id="tab-analise" class="tab-content active">
-      <div class="form-row">
-        <div class="field"><label>📅 Data do acidente *</label><input type="date" id="acidente-data" required></div>
-        <div class="field"><label>⏰ Hora</label><input type="time" id="acidente-hora"></div>
+    <!-- ABA 1: CADASTRO DE ACIDENTE -->
+    <div id="tab-cadastro" class="tab-content active">
+      <!-- TIPO DE ACIDENTE -->
+      <div class="section-title">TIPO DE ACIDENTE</div>
+      <div class="checkbox-group-single">
+        <label><input type="radio" name="tipo-acidente" value="Acidente/Colisão sem vítimas"> Acidente / Colisão sem vítimas</label>
+        <label><input type="radio" name="tipo-acidente" value="Atropelamento/Queda acidental"> Atropelamento / Queda acidental</label>
+        <label><input type="radio" name="tipo-acidente" value="Colisão Com vítimas"> Colisão Com vítimas</label>
       </div>
-      <div class="field"><label>📍 Local *</label><input type="text" id="acidente-local" placeholder="Endereço, ponto de referência" required></div>
+      
+      <!-- DADOS DO ACIDENTE -->
+      <div class="section-title">DADOS DO ACIDENTE</div>
       <div class="form-row">
-        <div class="field"><label>🚛 Prefixo (carro)</label><input type="text" id="acidente-prefixo" placeholder="Digite o prefixo" list="lista-veiculos"></div>
-        <div class="field"><label>👨‍✈️ Motorista (chapa ou nome)</label><input type="text" id="acidente-motorista" placeholder="Chapa ou nome" list="lista-motoristas"></div>
+        <div class="field"><label>📅 Data/Hora *</label><input type="datetime-local" id="cadastro-data-hora" required></div>
       </div>
-      <datalist id="lista-veiculos"></datalist>
-      <datalist id="lista-motoristas"></datalist>
-      <div class="field"><label>📝 Descrição da análise</label><textarea id="acidente-descricao" rows="6" placeholder="Descreva a dinâmica do acidente, condições da via, fatores climáticos, etc."></textarea></div>
-      <div class="field"><label>📎 Anexos gerais (até 4 arquivos)</label>
+      <div class="form-row">
+        <div class="field"><label>📍 Logradouro *</label><input type="text" id="cadastro-logradouro" placeholder="Rua, Avenida, Estrada..." required></div>
+        <div class="field"><label>🏘️ Bairro</label><input type="text" id="cadastro-bairro"></div>
+        <div class="field"><label>🏙️ Cidade</label><input type="text" id="cadastro-cidade"></div>
+        <div class="field"><label>📮 CEP</label><input type="text" id="cadastro-cep" placeholder="00000-000" maxlength="9"><button type="button" class="btn-buscar-cep" onclick="buscarCEP()">🔍</button></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>🚌 Código da Linha</label><input type="text" id="linha-codigo" placeholder="Digite o código" onblur="buscarDadosLinha()"></div>
+        <div class="field"><label>Nome da Linha</label><input type="text" id="linha-nome" readonly></div>
+        <div class="field"><label>Sentido da Linha</label><input type="text" id="linha-sentido" readonly></div>
+      </div>
+      
+      <!-- DADOS DO ÔNIBUS -->
+      <div class="section-title">DADOS DO ÔNIBUS</div>
+      <div class="form-row">
+        <div class="field"><label>🚛 Prefixo *</label><input type="text" id="onibus-prefixo" placeholder="Digite o prefixo" onblur="buscarDadosOnibus()" required></div>
+        <div class="field"><label>Placa</label><input type="text" id="onibus-placa" readonly></div>
+        <div class="field"><label>Renavan</label><input type="text" id="onibus-renavan" readonly></div>
+        <div class="field"><label>Ano de Fabricação</label><input type="text" id="onibus-ano" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Marca</label><input type="text" id="onibus-marca" readonly></div>
+        <div class="field"><label>Modelo</label><input type="text" id="onibus-modelo" readonly></div>
+        <div class="field"><label>Cor</label><input type="text" id="onibus-cor" readonly></div>
+        <div class="field"><label>Cidade</label><input type="text" id="onibus-cidade" readonly></div>
+      </div>
+      
+      <!-- DADOS DO MOTORISTA -->
+      <div class="section-title">DADOS DO MOTORISTA</div>
+      <div class="form-row">
+        <div class="field"><label>👨‍✈️ Chapa *</label><input type="text" id="motorista-chapa" placeholder="Digite a chapa" onblur="buscarDadosMotorista()" required></div>
+        <div class="field"><label>Nome de Escala (Apelido)</label><input type="text" id="motorista-apelido" readonly></div>
+        <div class="field"><label>Nome Completo</label><input type="text" id="motorista-nome" readonly></div>
+        <div class="field"><label>CNH</label><input type="text" id="motorista-cnh" readonly></div>
+        <div class="field"><label>Validade da CNH</label><input type="date" id="motorista-cnh-validade" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Logradouro</label><input type="text" id="motorista-logradouro" readonly></div>
+        <div class="field"><label>Bairro</label><input type="text" id="motorista-bairro" readonly></div>
+        <div class="field"><label>Cidade</label><input type="text" id="motorista-cidade" readonly></div>
+        <div class="field"><label>Complemento</label><input type="text" id="motorista-complemento" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Nascimento</label><input type="date" id="motorista-nascimento" readonly></div>
+        <div class="field"><label>Naturalidade</label><input type="text" id="motorista-naturalidade" placeholder="Cidade / UF" readonly></div>
+        <div class="field"><label>Nome da Mãe</label><input type="text" id="motorista-mae" readonly></div>
+        <div class="field"><label>Celular</label><input type="tel" id="motorista-celular" readonly></div>
+      </div>
+      
+      <!-- HISTÓRICO DO MOTORISTA -->
+      <div class="section-title">HISTÓRICO DO MOTORISTA</div>
+      <div class="field"><label>📝 Descrição do Histórico</label><textarea id="motorista-historico" rows="6" placeholder="Descreva o histórico..."></textarea></div>
+      <div class="field">
+        <label>📸 Foto da CNH (para validação)</label>
+        <input type="file" id="motorista-cnh-foto" accept="image/*" onchange="processarFotoCNH(this)">
+        <div id="preview-cnh" class="preview-imagem"></div>
+      </div>
+      
+      <!-- ANEXOS GERAIS -->
+      <div class="section-title">ANEXOS</div>
+      <div class="field">
+        <label>📎 Fotos do Coletivo (até 6)</label>
         <div class="action-row">
-          <button type="button" id="btn-anexar-principal" class="btn-secundario" onclick="anexarArquivosPrincipais()">➕ Anexar arquivos</button>
-          <div id="lista-anexos-principais" class="grid-anexos-preview"><small>Nenhum anexo</small></div>
+          <button type="button" id="btn-anexar-coletivo" class="btn-secundario" onclick="anexarFotosColetivo()">➕ Adicionar fotos</button>
+          <div id="lista-anexos-coletivo" class="grid-anexos-preview"><small>Nenhuma foto</small></div>
         </div>
       </div>
+      
+      <div class="action-buttons">
+        <button type="button" id="btn-salvar-cadastro" class="btn-secundario" onclick="salvarAbaCadastro()">💾 SALVAR DADOS DA ABA</button>
+      </div>
     </div>
     
-    <!-- ABA 2: Bens avariados -->
+    <!-- ABA 2: ANÁLISE DO ACIDENTE -->
+    <div id="tab-analise" class="tab-content">
+      <!-- SITUAÇÃO DO ÔNIBUS -->
+      <div class="section-title">SITUAÇÃO DO ÔNIBUS NO MOMENTO DO ACIDENTE</div>
+      <div class="checkbox-group-single">
+        <label><input type="radio" name="onibus-situacao" value="ESTACIONADO" onchange="toggleSituacaoOnibus()"> ESTACIONADO</label>
+        <label><input type="radio" name="onibus-situacao" value="PARADO" onchange="toggleSituacaoOnibus()"> PARADO</label>
+        <label><input type="radio" name="onibus-situacao" value="TRANSITANDO" onchange="toggleSituacaoOnibus()"> TRANSITANDO</label>
+      </div>
+      
+      <!-- MOVIMENTAÇÃO (se transitando) -->
+      <div id="div-movimentacao" class="hidden-section">
+        <div class="checkbox-group-multiple">
+          <label><input type="checkbox" name="onibus-movimentacao" value="EM FRENTE"> EM FRENTE</label>
+          <label><input type="checkbox" name="onibus-movimentacao" value="EM MARCHA A RÉ"> EM MARCHA A RÉ</label>
+          <label><input type="checkbox" name="onibus-movimentacao" value="MANOBRANDO"> MANOBRANDO</label>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Velocidade (km/h)</label><input type="number" id="onibus-velocidade" placeholder="0"></div>
+        </div>
+      </div>
+      
+      <!-- LOCALIZAÇÃO (se parado) -->
+      <div id="div-parado" class="hidden-section">
+        <div class="checkbox-group-multiple">
+          <label><input type="checkbox" name="onibus-parado" value="NO PONTO FINAL"> NO PONTO FINAL</label>
+          <label><input type="checkbox" name="onibus-parado" value="NO SEMÁFORO"> NO SEMÁFORO</label>
+          <label><input type="checkbox" name="onibus-parado" value="NO TRÂNSITO"> NO TRÂNSITO</label>
+          <label><input type="checkbox" name="onibus-parado" value="EMBARCANDO/DESEMBARCANDO"> EMBARCANDO/DESEMBARCANDO</label>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="field"><label>Lotação</label><input type="number" id="onibus-lotacao" placeholder="0"></div>
+      </div>
+      
+      <!-- PARTE AVARIADA -->
+      <div class="section-title">PARTE AVARIADA (DO ÔNIBUS)</div>
+      <div class="checkbox-group-multiple">
+        <label><input type="checkbox" name="parte-avariada" value="LATERAL ESQUERDA"> LATERAL ESQUERDA</label>
+        <label><input type="checkbox" name="parte-avariada" value="LATERAL DIREITA"> LATERAL DIREITA</label>
+        <label><input type="checkbox" name="parte-avariada" value="TRASEIRA"> TRASEIRA</label>
+        <label><input type="checkbox" name="parte-avariada" value="FRONTAL"> FRONTAL</label>
+        <label><input type="checkbox" name="parte-avariada" value="NÃO SE APLICA"> NÃO SE APLICA</label>
+      </div>
+      
+      <!-- DANOS RESULTANTES -->
+      <div class="section-title">DANOS RESULTANTES DO ACIDENTE</div>
+      <div class="checkbox-group-multiple">
+        <label><input type="checkbox" name="danos-resultantes" value="VEÍCULO(S)"> VEÍCULO(S)</label>
+        <label><input type="checkbox" name="danos-resultantes" value="VÍTIMA(S)"> VÍTIMA(S)</label>
+        <label><input type="checkbox" name="danos-resultantes" value="INSTALAÇÕES PÚBLICAS"> INSTALAÇÕES PÚBLICAS (PONTOS, PLACAS, POSTES, ETC..)</label>
+        <label><input type="checkbox" name="danos-resultantes" value="IMÓVEIS"> IMÓVEIS</label>
+      </div>
+      
+      <!-- CONDIÇÕES CLIMÁTICAS -->
+      <div class="section-title">CONDIÇÕES CLIMÁTICAS</div>
+      <div class="form-row">
+        <div class="field">
+          <label>PERÍODO</label>
+          <div class="checkbox-group-multiple">
+            <label><input type="checkbox" name="periodo" value="DIA"> DIA</label>
+            <label><input type="checkbox" name="periodo" value="NOITE"> NOITE</label>
+            <label><input type="checkbox" name="periodo" value="ENTARDECER/ALVORECER"> ENTARDECER/ALVORECER</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>CLIMA</label>
+          <div class="checkbox-group-multiple">
+            <label><input type="checkbox" name="clima" value="TEMPO BOM / ENSOLARADO"> TEMPO BOM / ENSOLARADO</label>
+            <label><input type="checkbox" name="clima" value="NEBLINA"> NEBLINA</label>
+            <label><input type="checkbox" name="clima" value="CHUVOSO"> CHUVOSO</label>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CONDIÇÕES DE VISIBILIDADE -->
+      <div class="section-title">CONDIÇÕES DE VISIBILIDADE NO ACIDENTE</div>
+      <div class="form-row">
+        <div class="field">
+          <label>ILUMINAÇÃO</label>
+          <div class="checkbox-group-multiple">
+            <label><input type="checkbox" name="iluminacao" value="NATURAL / SOL"> NATURAL / SOL</label>
+            <label><input type="checkbox" name="iluminacao" value="NOITE COM ILUMINAÇÃO ARTIFICIAL"> NOITE COM ILUMINAÇÃO ARTIFICIAL</label>
+            <label><input type="checkbox" name="iluminacao" value="PENUMBRA"> PENUMBRA</label>
+            <label><input type="checkbox" name="iluminacao" value="NOITE SEM ILUMINAÇÃO ARTIFICIAL"> NOITE SEM ILUMINAÇÃO ARTIFICIAL</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>VISIBILIDADE DO ACIDENTE</label>
+          <div class="checkbox-group-multiple">
+            <label><input type="checkbox" name="visibilidade" value="TOTAL"> TOTAL</label>
+            <label><input type="checkbox" name="visibilidade" value="PARCIAL"> PARCIAL</label>
+            <label><input type="checkbox" name="visibilidade" value="NULA"> NULA</label>
+          </div>
+        </div>
+      </div>
+      <div class="checkbox-group-multiple">
+        <label><input type="checkbox" name="tipo-acidente-visibilidade" value="CHOQUE"> CHOQUE</label>
+        <label><input type="checkbox" name="tipo-acidente-visibilidade" value="ALBARROAMENTO"> ALBARROAMENTO</label>
+        <label><input type="checkbox" name="tipo-acidente-visibilidade" value="COLISÃO"> COLISÃO</label>
+      </div>
+      
+      <!-- ATENDIMENTO DO ACIDENTE -->
+      <div class="section-title">ATENDIMENTO DO ACIDENTE</div>
+      <div class="checkbox-group-multiple">
+        <label><input type="checkbox" name="preenchimento-ocorrencia" value="NO LOCAL DOS FATOS" onchange="toggleOutrosPreenchimento()"> NO LOCAL DOS FATOS</label>
+        <label><input type="checkbox" name="preenchimento-ocorrencia" value="NA GARAGEM" onchange="toggleOutrosPreenchimento()"> NA GARAGEM</label>
+        <label><input type="checkbox" name="preenchimento-ocorrencia" value="NO TERMINAL" onchange="toggleOutrosPreenchimento()"> NO TERMINAL</label>
+        <label><input type="checkbox" name="preenchimento-ocorrencia" value="DELEGACIA OU PRONTO SOCORRO" onchange="toggleOutrosPreenchimento()"> DELEGACIA OU PRONTO SOCORRO</label>
+        <label><input type="checkbox" name="preenchimento-ocorrencia" value="OUTROS" onchange="toggleOutrosPreenchimento()"> OUTROS (DESCREVA)</label>
+      </div>
+      <div id="div-outros-preenchimento" class="hidden-section">
+        <div class="field"><label>Descreva outros:</label><input type="text" id="outros-preenchimento-desc"></div>
+      </div>
+      
+      <!-- AUTORIDADES PRESENTES -->
+      <div class="section-title">AUTORIDADES PRESENTES</div>
+      <div class="checkbox-group-multiple" id="autoridades-checkboxes">
+        <label><input type="checkbox" name="autoridades" value="PM" onchange="toggleAutoridadesFields()"> PM</label>
+        <label><input type="checkbox" name="autoridades" value="SAMU" onchange="toggleAutoridadesFields()"> SAMU</label>
+        <label><input type="checkbox" name="autoridades" value="BOMBEIROS" onchange="toggleAutoridadesFields()"> BOMBEIROS</label>
+        <label><input type="checkbox" name="autoridades" value="RESGATE" onchange="toggleAutoridadesFields()"> RESGATE</label>
+        <label><input type="checkbox" name="autoridades" value="POLÍCIA CIVIL" onchange="toggleAutoridadesFields()"> POLÍCIA CIVIL</label>
+        <label><input type="checkbox" name="autoridades" value="GCM" onchange="toggleAutoridadesFields()"> GCM</label>
+        <label><input type="checkbox" name="autoridades" value="TRANSITO" onchange="toggleAutoridadesFields()"> TRANSITO</label>
+        <label><input type="checkbox" name="autoridades" value="POLÍCIA RODOVIÁRIA" onchange="toggleAutoridadesFields()"> POLÍCIA RODOVIÁRIA</label>
+      </div>
+      <div id="autoridades-fields-container"></div>
+      
+      <!-- ÓRGÃO GESTOR -->
+      <div class="section-title">ÓRGÃO GESTOR</div>
+      <div class="checkbox-group-single">
+        <label><input type="radio" name="orgao-gestor" value="SIM" onchange="toggleOrgaoGestor()"> SIM</label>
+        <label><input type="radio" name="orgao-gestor" value="NÃO" onchange="toggleOrgaoGestor()"> NÃO</label>
+      </div>
+      <div id="div-orgao-gestor" class="hidden-section">
+        <div class="form-row">
+          <div class="field"><label>Órgão</label><input type="text" id="orgao-gestor-nome"></div>
+          <div class="field"><label>Responsável</label><input type="text" id="orgao-gestor-responsavel"></div>
+          <div class="field"><label>Protocolo de Atendimento</label><input type="text" id="orgao-gestor-protocolo"></div>
+        </div>
+      </div>
+      
+      <!-- ANEXOS LOCAL -->
+      <div class="section-title">ANEXOS</div>
+      <div class="field">
+        <label>📎 Fotos do Local (até 6)</label>
+        <div class="action-row">
+          <button type="button" id="btn-anexar-local" class="btn-secundario" onclick="anexarFotosLocal()">➕ Adicionar fotos</button>
+          <div id="lista-anexos-local" class="grid-anexos-preview"><small>Nenhuma foto</small></div>
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <button type="button" id="btn-salvar-analise" class="btn-secundario" onclick="salvarAbaAnalise()">💾 SALVAR DADOS DA ABA</button>
+      </div>
+    </div>
+    
+    <!-- ABA 3: BENS AVARIADOS -->
     <div id="tab-bens" class="tab-content">
       <div id="bens-list" class="bens-container"></div>
-      <button type="button" id="btn-adicionar-bem" class="btn-secundario" style="margin-top: 10px;">+ Adicionar bem / veículo</button>
+      <button type="button" id="btn-adicionar-bem" class="btn-secundario" style="margin-top: 10px;" onclick="adicionarBem()">+ Adicionar bem / veículo</button>
+      <div class="action-buttons" style="margin-top: 20px;">
+        <button type="button" id="btn-salvar-bens" class="btn-secundario" onclick="salvarAbaBens()">💾 SALVAR DADOS DA ABA</button>
+      </div>
     </div>
     
-    <!-- ABA 3: Vítimas e testemunhas -->
-    <div id="tab-pessoas" class="tab-content">
+    <!-- ABA 4: VÍTIMAS -->
+    <div id="tab-vitimas" class="tab-content">
       <h4>🚑 Vítimas</h4>
       <div id="vitimas-list" class="pessoas-container"></div>
-      <button type="button" id="btn-adicionar-vitima" class="btn-secundario">+ Adicionar vítima</button>
-      <h4 style="margin-top: 20px;">🗣️ Testemunhas</h4>
-      <div id="testemunhas-list" class="pessoas-container"></div>
-      <button type="button" id="btn-adicionar-testemunha" class="btn-secundario">+ Adicionar testemunha</button>
+      <button type="button" id="btn-adicionar-vitima" class="btn-secundario" onclick="adicionarVitima()">+ Adicionar vítima</button>
+      <div class="action-buttons" style="margin-top: 20px;">
+        <button type="button" id="btn-salvar-vitimas" class="btn-secundario" onclick="salvarAbaVitimas()">💾 SALVAR DADOS DA ABA</button>
+      </div>
     </div>
     
-    <div class="action-buttons" style="margin-top: 20px;">
-      <button type="button" id="btn-salvar-rascunho" class="btn-secundario">💾 Salvar rascunho</button>
-      <button type="button" id="btn-finalizar-acidente" class="btn-principal">✅ Finalizar relatório</button>
-      <button type="button" id="btn-consultar-acidentes" class="btn-secundario">🔍 Consultar acidentes</button>
+    <!-- ABA 5: TESTEMUNHAS -->
+    <div id="tab-testemunhas" class="tab-content">
+      <h4>🗣️ Testemunhas</h4>
+      <div id="testemunhas-list" class="pessoas-container"></div>
+      <button type="button" id="btn-adicionar-testemunha" class="btn-secundario" onclick="adicionarTestemunha()">+ Adicionar testemunha</button>
+      <div class="action-buttons" style="margin-top: 20px;">
+        <button type="button" id="btn-salvar-testemunhas" class="btn-secundario" onclick="salvarAbaTestemunhas()">💾 SALVAR DADOS DA ABA</button>
+      </div>
+    </div>
+    
+    <!-- ABA 6: PARECER DA OPERAÇÃO -->
+    <div id="tab-parecer" class="tab-content">
+      <div class="section-title">DADOS DO INSPETOR</div>
+      <div class="form-row">
+        <div class="field"><label>Inspetor</label><input type="text" id="parecer-inspetor" readonly></div>
+        <div class="field"><label>Chapa</label><input type="text" id="parecer-chapa" readonly></div>
+        <div class="field"><label>Nome Completo</label><input type="text" id="parecer-nome" readonly></div>
+      </div>
+      
+      <div class="section-title">VISÃO DO INSPETOR</div>
+      <div class="field"><label>📝 Descrição</label><textarea id="parecer-visao" rows="6" placeholder="Descreva sua visão sobre o acidente..."></textarea></div>
+      
+      <div class="section-title">ATRIBUIÇÃO DE CULPA</div>
+      <div class="checkbox-group-single">
+        <label><input type="radio" name="atribuicao-culpa" value="TERCEIRO" onchange="toggleCulpaOutros()"> TERCEIRO</label>
+        <label><input type="radio" name="atribuicao-culpa" value="NOSSO MOTORISTA" onchange="toggleCulpaOutros()"> NOSSO MOTORISTA</label>
+        <label><input type="radio" name="atribuicao-culpa" value="OUTROS" onchange="toggleCulpaOutros()"> OUTROS (DIGITE)</label>
+      </div>
+      <div id="div-culpa-outros" class="hidden-section">
+        <div class="field"><label>Descreva:</label><input type="text" id="culpa-outros-desc"></div>
+      </div>
+      
+      <div class="field"><label>Motivo</label><textarea id="parecer-motivo" rows="4" placeholder="Justifique a atribuição de culpa..."></textarea></div>
+      
+      <div class="action-buttons" style="margin-top: 20px;">
+        <button type="button" id="btn-salvar-parecer" class="btn-secundario" onclick="salvarAbaParecer()">💾 SALVAR DADOS DA ABA</button>
+        <button type="button" id="btn-finalizar-acidente" class="btn-principal" onclick="finalizarAcidente()">✅ SALVAR E ENVIAR</button>
+      </div>
+    </div>
+    
+    <!-- BOTÕES GLOBAIS -->
+    <div class="action-buttons" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+      <button type="button" id="btn-consultar-acidentes" class="btn-secundario" onclick="abrirConsultaAcidentes()">🔍 Consultar acidentes</button>
     </div>
   </div>
 </div>

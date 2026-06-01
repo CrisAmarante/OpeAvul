@@ -167,3 +167,37 @@ textarea { resize: vertical; }
   .cards-grid { gap: 20px; max-width: 700px; }
   .card, .inspector-card { width: calc(33.333% - 14px); min-width: 160px; min-height: 130px; }
 }
+
+/* Seções ocultas */
+.hidden-section { display: none !important; }
+
+/* Seções de título */
+.section-title { font-size: 1.1em; font-weight: bold; margin: 20px 0 10px 0; color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; }
+
+/* Checkbox groups */
+.checkbox-group-single, .checkbox-group-multiple { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.checkbox-group-single label, .checkbox-group-multiple label { display: flex; align-items: center; gap: 5px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.checkbox-group-multiple label { background: #e8f4fd; }
+
+/* Preview imagem */
+.preview-imagem { margin-top: 10px; }
+.preview-imagem img { max-width: 200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+/* Grid anexos preview */
+.grid-anexos-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.grid-anexos-preview .anexo-item { background: #f0f0f0; padding: 6px 10px; border-radius: 6px; font-size: 0.9em; display: flex; align-items: center; gap: 5px; }
+
+/* Botão remover pequeno */
+.btn-remover-pequeno { background: #ff4d4d; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Cards de bens e pessoas */
+.bem-card, .pessoa-card { background: #fff; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+.btn-remover { background: #ff4d4d; color: white; border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+
+/* Autoridade field box */
+.autoridade-field-box { background: #f9f9f9; border: 1px solid var(--border-color) !important; border-radius: 8px !important; padding: 10px !important; margin-top: 10px !important; }
+
+/* Botão buscar CEP */
+.btn-buscar-cep { background: var(--primary-color); color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; margin-left: 5px; }
+.btn-buscar-cep:hover { opacity: 0.9; }
