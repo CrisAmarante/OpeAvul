@@ -556,6 +556,196 @@ function habilitarEdicao() {
 }
 
 // ====================================================================
+// BUSCA CEP VIA API
+// ====================================================================
+async function buscarCEP() {
+  const cepInput = getEl('cadastro-cep');
+  if (!cepInput || !cepInput.value) return;
+  const cep = cepInput.value.replace(/\D/g, '');
+  if (cep.length !== 8) { alert('CEP inválido!'); return; }
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json();
+    if (data.erro) { alert('CEP não encontrado!'); return; }
+    if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = data.logradouro || '';
+    if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = data.bairro || '';
+    if (getEl('cadastro-cidade')) getEl('cadastro-cidade').value = data.localidade || '';
+  } catch(e) { console.warn('Erro ao buscar CEP', e); }
+}
+
+// ====================================================================
+// BUSCAR DADOS DA LINHA (Google Sheets)
+// ====================================================================
+async function buscarDadosLinha() {
+  const codigoInput = getEl('linha-codigo');
+  if (!codigoInput || !codigoInput.value) return;
+  const codigo = codigoInput.value.trim();
+  try {
+    const url = `${URL_PLANILHA}?acao=buscar_linha&codigo=${encodeURIComponent(codigo)}`;
+    const resp = await fetch(url);
+    const linha = await resp.json();
+    if (linha && linha.numero) {
+      if (getEl('linha-nome')) getEl('linha-nome').value = linha.descricao || '';
+      // Sentido é digitado livremente pelo usuário
+    }
+  } catch(e) { console.warn('Erro ao buscar linha', e); }
+}
+
+// ====================================================================
+// BUSCAR DADOS DO ÔNIBUS (Google Sheets)
+// ====================================================================
+async function buscarDadosOnibus() {
+  const prefixoInput = getEl('onibus-prefixo');
+  if (!prefixoInput || !prefixoInput.value) return;
+  const prefixo = prefixoInput.value.trim();
+  try {
+    const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(prefixo)}`;
+    const resp = await fetch(url);
+    const veiculo = await resp.json();
+    if (veiculo && veiculo.prefixo) {
+      if (getEl('onibus-placa')) getEl('onibus-placa').value = veiculo.placa || '';
+      if (getEl('onibus-renavan')) getEl('onibus-renavan').value = veiculo.renavam || '';
+      if (getEl('onibus-ano')) getEl('onibus-ano').value = veiculo.ano || '';
+      if (getEl('onibus-marca')) getEl('onibus-marca').value = veiculo.marca || '';
+      if (getEl('onibus-modelo')) getEl('onibus-modelo').value = veiculo.modeloChassi || '';
+      if (getEl('onibus-cor')) getEl('onibus-cor').value = veiculo.cor || '';
+      if (getEl('onibus-cidade')) getEl('onibus-cidade').value = veiculo.cidade || '';
+    }
+  } catch(e) { console.warn('Erro ao buscar veículo', e); }
+}
+
+// ====================================================================
+// BUSCAR DADOS DO MOTORISTA (Google Sheets)
+// ====================================================================
+async function buscarDadosMotorista() {
+  const chapaInput = getEl('motorista-chapa');
+  if (!chapaInput || !chapaInput.value) return;
+  const chapa = chapaInput.value.trim();
+  try {
+    const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(chapa)}`;
+    const resp = await fetch(url);
+    const operadores = await resp.json();
+    if (operadores && operadores.length > 0) {
+      const op = operadores[0];
+      if (getEl('motorista-apelido')) getEl('motorista-apelido').value = op.apelido || '';
+      if (getEl('motorista-nome')) getEl('motorista-nome').value = op.nome || '';
+      if (getEl('motorista-cnh')) getEl('motorista-cnh').value = op.cnh || '';
+      if (getEl('motorista-cnh-validade')) getEl('motorista-cnh-validade').value = op.cnhValidade || '';
+      if (getEl('motorista-nascimento')) getEl('motorista-nascimento').value = op.nascimento || '';
+      if (getEl('motorista-naturalidade')) getEl('motorista-naturalidade').value = op.naturalidade || '';
+      if (getEl('motorista-mae')) getEl('motorista-mae').value = op.mae || '';
+      if (getEl('motorista-celular')) getEl('motorista-celular').value = op.celular || '';
+    }
+  } catch(e) { console.warn('Erro ao buscar operador', e); }
+}
+
+// ====================================================================
+// PROCESSAR FOTO DA CNH COM CÂMERA
+// ====================================================================
+function processarFotoCNH(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = getEl('preview-cnh');
+    if (preview) {
+      preview.innerHTML = `<img src="${e.target.result}" alt="CNH" style="max-width: 200px; border-radius: 8px;">`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ====================================================================
+// TOGGLE SITUAÇÃO DO ÔNIBUS
+// ====================================================================
+function toggleSituacaoOnibus() {
+  const situacao = document.querySelector('input[name="onibus-situacao"]:checked');
+  const divMovimentacao = getEl('div-movimentacao');
+  const divParado = getEl('div-parado');
+  if (!situacao) {
+    if (divMovimentacao) divMovimentacao.classList.add('hidden-section');
+    if (divParado) divParado.classList.add('hidden-section');
+    return;
+  }
+  if (situacao.value === 'TRANSITANDO') {
+    if (divMovimentacao) divMovimentacao.classList.remove('hidden-section');
+    if (divParado) divParado.classList.add('hidden-section');
+  } else if (situacao.value === 'PARADO') {
+    if (divMovimentacao) divMovimentacao.classList.add('hidden-section');
+    if (divParado) divParado.classList.remove('hidden-section');
+  } else {
+    if (divMovimentacao) divMovimentacao.classList.add('hidden-section');
+    if (divParado) divParado.classList.add('hidden-section');
+  }
+}
+
+// ====================================================================
+// TOGGLE OUTROS PREENCHIMENTO
+// ====================================================================
+function toggleOutrosPreenchimento() {
+  const outrosCheckbox = document.querySelector('input[name="preenchimento-ocorrencia"][value="OUTROS"]');
+  const divOutros = getEl('div-outros-preenchimento');
+  if (!divOutros) return;
+  if (outrosCheckbox && outrosCheckbox.checked) {
+    divOutros.classList.remove('hidden-section');
+  } else {
+    divOutros.classList.add('hidden-section');
+  }
+}
+
+// ====================================================================
+// TOGGLE AUTORIDADES FIELDS
+// ====================================================================
+function toggleAutoridadesFields() {
+  const container = getEl('autoridades-fields-container');
+  if (!container) return;
+  container.innerHTML = '';
+  const checkboxes = document.querySelectorAll('input[name="autoridades"]:checked');
+  checkboxes.forEach(cb => {
+    const autoridade = cb.value;
+    const div = document.createElement('div');
+    div.className = 'field autoridade-field-box';
+    div.innerHTML = `
+      <strong>${autoridade}</strong>
+      <div class="form-row">
+        <div class="field"><label>Nº Viatura</label><input type="text" name="viatura-${autoridade}"></div>
+        <div class="field"><label>Responsável</label><input type="text" name="responsavel-${autoridade}"></div>
+        <div class="field"><label>Distr./Batalhão/Delegacia</label><input type="text" name="distrito-${autoridade}"></div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ====================================================================
+// TOGGLE ÓRGÃO GESTOR
+// ====================================================================
+function toggleOrgaoGestor() {
+  const simRadio = document.querySelector('input[name="orgao-gestor"][value="SIM"]');
+  const divOrgao = getEl('div-orgao-gestor');
+  if (!divOrgao) return;
+  if (simRadio && simRadio.checked) {
+    divOrgao.classList.remove('hidden-section');
+  } else {
+    divOrgao.classList.add('hidden-section');
+  }
+}
+
+// ====================================================================
+// TOGGLE CULPA OUTROS
+// ====================================================================
+function toggleCulpaOutros() {
+  const outrosRadio = document.querySelector('input[name="atribuicao-culpa"][value="OUTROS"]');
+  const divOutros = getEl('div-culpa-outros');
+  if (!divOutros) return;
+  if (outrosRadio && outrosRadio.checked) {
+    divOutros.classList.remove('hidden-section');
+  } else {
+    divOutros.classList.add('hidden-section');
+  }
+}
+
+// ====================================================================
 // AUTOCOMPLETE
 // ====================================================================
 function iniciarAutoComplete() {
@@ -717,3 +907,13 @@ window.salvarRascunhoAcidente = salvarRascunhoAcidente;
 window.abrirModalConsultaAcidentes = abrirModalConsultaAcidentes;
 window.fecharModalConsulta = fecharModalConsulta;
 window.anexarArquivosPrincipais = anexarArquivosPrincipais;
+window.buscarCEP = buscarCEP;
+window.buscarDadosLinha = buscarDadosLinha;
+window.buscarDadosOnibus = buscarDadosOnibus;
+window.buscarDadosMotorista = buscarDadosMotorista;
+window.processarFotoCNH = processarFotoCNH;
+window.toggleSituacaoOnibus = toggleSituacaoOnibus;
+window.toggleOutrosPreenchimento = toggleOutrosPreenchimento;
+window.toggleAutoridadesFields = toggleAutoridadesFields;
+window.toggleOrgaoGestor = toggleOrgaoGestor;
+window.toggleCulpaOutros = toggleCulpaOutros;
