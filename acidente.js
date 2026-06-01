@@ -100,7 +100,7 @@ function iniciarNovoAcidente() {
 function limparFormularioAcidente() {
   // Limpa campos da aba Cadastro de Acidente
   const camposCadastro = [
-    'cadastro-data-hora', 'cadastro-tipo-acidente', 'cadastro-logradouro',
+    'cadastro-data-hora', 'cadastro-logradouro',
     'cadastro-bairro', 'cadastro-cidade', 'cadastro-cep',
     'linha-codigo', 'linha-nome', 'linha-sentido',
     'onibus-prefixo', 'onibus-placa', 'onibus-renavan', 'onibus-ano',
@@ -116,8 +116,12 @@ function limparFormularioAcidente() {
     if (el) el.value = '';
   });
   
-  // Limpa checkboxes
-  const checkboxes = document.querySelectorAll('#aba-cadastro input[type="checkbox"], #aba-cadastro input[type="radio"]');
+  // Limpa radio buttons de tipo de acidente
+  const radiosTipoAcidente = document.querySelectorAll('input[name="tipo-acidente"]');
+  radiosTipoAcidente.forEach(radio => radio.checked = false);
+  
+  // Limpa outros checkboxes da aba cadastro
+  const checkboxes = document.querySelectorAll('#tab-cadastro input[type="checkbox"]');
   checkboxes.forEach(cb => cb.checked = false);
 }
 
