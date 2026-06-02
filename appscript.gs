@@ -9,20 +9,52 @@ const ID_PASTA_ANEXOS_ACIDENTES = "1vvjL8WtPMJKYsMfWaUdzYHHbKisOwbwF"; // Substi
 function criarAbasAcidente() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  // Aba principal de ocorrências com todas as colunas necessárias
   if (!ss.getSheetByName("Ocorrencias_acidentes")) {
     var sheet = ss.insertSheet("Ocorrencias_acidentes");
     sheet.appendRow(["ID", "Status", "DataCriacao", "DataAtualizacao", "FiscalCriador",
-                     "DataAcidente", "HoraAcidente", "Local", "DescricaoAnalise",
-                     "AnexosPrincipais", "Prefixo", "MotoristaChapa", "Finalizado"]);
+                     "DataAcidente", "HoraAcidente", "Local", "TipoAcidente",
+                     "LinhaCodigo", "LinhaNome", "LinhaSentido",
+                     "OnibusPrefixo", "OnibusPlaca", "OnibusRenavan", "OnibusAno", "OnibusMarca", "OnibusModelo", "OnibusCor", "OnibusCidade",
+                     "MotoristaChapa", "MotoristaNomeEscala", "MotoristaNomeCompleto", "MotoristaCNH", "MotoristaCNHValidade",
+                     "MotoristaEndereco", "MotoristaBairro", "MotoristaCidade", "MotoristaComplemento",
+                     "MotoristaNascimento", "MotoristaNaturalidade", "MotoristaNomeMae", "MotoristaCelular",
+                     "HistoricoDescricao", "FotoCNH",
+                     "AnexosColetivo",
+                     "SituacaoOnibus", "MovimentacaoOnibus", "Velocidade", "LocalParado", "Lotacao",
+                     "ParteAvariada", "DanosResultantes",
+                     "Periodo", "Clima",
+                     "Iluminacao", "VisibilidadeAcidente", "TipoAcidenteAnalise",
+                     "PerfilVia_Reta_Curva", "PerfilVia_Plano_Aclive_Declive",
+                     "TipoVia", "SentidoVia", "NumFaixas",
+                     "CondicaoVia_Pavimentacao", "CondicaoVia_Conservacao", "CondicaoVia_Situacao",
+                     "CondicaoVia_SinalizacaoSolo", "CondicaoVia_SinalizacaoVertical", "CondicaoVia_Semaforo", "SinalizacaoVerticalOutros",
+                     "PreenchimentoOcorrencia", "PreenchimentoOutros",
+                     "AutoridadesPresentes", "DadosAutoridades",
+                     "OrgaoGestor", "OrgaoGestorNome", "OrgaoGestorResponsavel", "OrgaoGestorProtocolo",
+                     "AnexosLocal",
+                     "InspetorChapa", "InspetorNomeCompleto", "InspetorApelido",
+                     "VisaoInspetor", "AtribuicaoCulpa", "CulpaOutros", "MotivoCulpa",
+                     "Finalizado"]);
   }
+  
+  // Aba de bens avariados (veículos terceiros)
   if (!ss.getSheetByName("BensAvariados")) {
     var sheet2 = ss.insertSheet("BensAvariados");
-    sheet2.appendRow(["ID_Acidente", "TipoBem", "Placa", "Ano", "Cor", "Modelo", "Renavan",
+    sheet2.appendRow(["ID_Acidente", "NumeroVeiculo", "TipoBem", "Placa", "Ano", "Cor", "Modelo", "Renavan",
                       "Proprietario", "Telefone", "Danos", "Anexos"]);
   }
-  if (!ss.getSheetByName("VitimasTestemunhas")) {
-    var sheet3 = ss.insertSheet("VitimasTestemunhas");
-    sheet3.appendRow(["ID_Acidente", "Tipo", "Nome", "Documento", "Contato", "Observacoes"]);
+  
+  // Aba de vítimas
+  if (!ss.getSheetByName("Vitimas")) {
+    var sheet3 = ss.insertSheet("Vitimas");
+    sheet3.appendRow(["ID_Acidente", "NumeroVítima", "Nome", "Documento", "Contato", "Endereco", "Observacoes", "Anexos"]);
+  }
+  
+  // Aba de testemunhas
+  if (!ss.getSheetByName("Testemunhas")) {
+    var sheet4 = ss.insertSheet("Testemunhas");
+    sheet4.appendRow(["ID_Acidente", "NumeroTestemunha", "Nome", "Documento", "Contato", "Endereco", "Relato", "Anexos"]);
   }
 }
 
@@ -168,28 +200,22 @@ function truncarTexto(texto, maxCaracteres = 1400, maxLinhas = 16) {
 
 // ====================================================================
 // SALVAR RASCUNHO DE ACIDENTE (com segurança contra linhas vazias)
+// Salva dados parciais de cada aba no banco de dados
 // ====================================================================
 function salvarRascunhoAcidente(dados) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
   var sheetBens = ss.getSheetByName("BensAvariados");
-  var sheetPessoas = ss.getSheetByName("VitimasTestemunhas");
+  var sheetVitimas = ss.getSheetByName("Vitimas");
+  var sheetTestemunhas = ss.getSheetByName("Testemunhas");
   
   // Garantir que as abas existam com cabeçalhos
   if (!sheetOcorrencias) {
-    sheetOcorrencias = ss.insertSheet("Ocorrencias_acidentes");
-    sheetOcorrencias.appendRow(["ID", "Status", "DataCriacao", "DataAtualizacao", "FiscalCriador",
-                                "DataAcidente", "HoraAcidente", "Local", "DescricaoAnalise",
-                                "AnexosPrincipais", "Prefixo", "MotoristaChapa", "Finalizado"]);
-  }
-  if (!sheetBens) {
-    sheetBens = ss.insertSheet("BensAvariados");
-    sheetBens.appendRow(["ID_Acidente", "TipoBem", "Placa", "Ano", "Cor", "Modelo", "Renavan",
-                         "Proprietario", "Telefone", "Danos", "Anexos"]);
-  }
-  if (!sheetPessoas) {
-    sheetPessoas = ss.insertSheet("VitimasTestemunhas");
-    sheetPessoas.appendRow(["ID_Acidente", "Tipo", "Nome", "Documento", "Contato", "Observacoes"]);
+    criarAbasAcidente();
+    sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
+    sheetBens = ss.getSheetByName("BensAvariados");
+    sheetVitimas = ss.getSheetByName("Vitimas");
+    sheetTestemunhas = ss.getSheetByName("Testemunhas");
   }
   
   var id = dados.id;
@@ -197,7 +223,7 @@ function salvarRascunhoAcidente(dados) {
   var fiscal = dados.fiscal;
   var status = dados.status || "EM_ANDAMENTO";
   
-  // === Buscar linha existente (mais robusto) ===
+  // === Buscar linha existente ===
   var lastRow = sheetOcorrencias.getLastRow();
   var linhaExistente = null;
   if (lastRow > 1) {
@@ -205,16 +231,100 @@ function salvarRascunhoAcidente(dados) {
     var ids = idsRange.getValues().map(function(row) { return String(row[0]); });
     var index = ids.indexOf(String(id));
     if (index !== -1) {
-      linhaExistente = index + 2; // +2 porque as linhas começam em 2 (1 é cabeçalho)
+      linhaExistente = index + 2;
     }
   }
   
   var dataCriacao = linhaExistente ? sheetOcorrencias.getRange(linhaExistente, 3).getValue() : agora;
   
+  // === Montar linha de dados da ocorrência principal ===
   var linhaDados = [
-    id, status, dataCriacao, agora, fiscal,
-    dados.dataAcidente || "", dados.horaAcidente || "", dados.local || "", truncarTexto(dados.descricaoAnalise || "", 1400, 16),
-    dados.anexosPrincipais || "", dados.prefixo || "", dados.motoristaChapa || "", dados.finalizado ? "SIM" : "NÃO"
+    id, 
+    status, 
+    dataCriacao, 
+    agora, 
+    fiscal,
+    dados.dataAcidente || "", 
+    dados.horaAcidente || "", 
+    dados.local || "", 
+    dados.tipoAcidente || "",
+    // Dados da linha
+    dados.linhaCodigo || "", 
+    dados.linhaNome || "", 
+    dados.linhaSentido || "",
+    // Dados do ônibus
+    dados.onibusPrefixo || "", 
+    dados.onibusPlaca || "", 
+    dados.onibusRenavan || "", 
+    dados.onibusAno || "", 
+    dados.onibusMarca || "", 
+    dados.onibusModelo || "", 
+    dados.onibusCor || "", 
+    dados.onibusCidade || "",
+    // Dados do motorista
+    dados.motoristaChapa || "", 
+    dados.motoristaNomeEscala || "", 
+    dados.motoristaNomeCompleto || "", 
+    dados.motoristaCNH || "", 
+    dados.motoristaCNHValidade || "",
+    dados.motoristaEndereco || "", 
+    dados.motoristaBairro || "", 
+    dados.motoristaCidade || "", 
+    dados.motoristaComplemento || "",
+    dados.motoristaNascimento || "", 
+    dados.motoristaNaturalidade || "", 
+    dados.motoristaNomeMae || "", 
+    dados.motoristaCelular || "",
+    // Histórico e anexos
+    truncarTexto(dados.historicoDescricao || "", 1400, 16), 
+    dados.fotoCNH || "",
+    dados.anexosColetivo || "",
+    // Análise do acidente
+    dados.situacaoOnibus || "", 
+    dados.movimentacaoOnibus || "", 
+    dados.velocidade || "", 
+    dados.localParado || "", 
+    dados.lotacao || "",
+    dados.parteAvariada || "", 
+    dados.danosResultantes || "",
+    dados.periodo || "", 
+    dados.clima || "",
+    dados.iluminacao || "", 
+    dados.visibilidadeAcidente || "", 
+    dados.tipoAcidenteAnalise || "",
+    // Perfil da via
+    dados.perfilViaRetaCurva || "", 
+    dados.perfilViaPlanoAcliveDeclive || "",
+    dados.tipoVia || "", 
+    dados.sentidoVia || "", 
+    dados.numFaixas || "",
+    // Condição da via
+    dados.condicaoViaPavimentacao || "", 
+    dados.condicaoViaConservacao || "", 
+    dados.condicaoViaSituacao || "",
+    dados.condicaoViaSinalizacaoSolo || "", 
+    dados.condicaoViaSinalizacaoVertical || "", 
+    dados.condicaoViaSemaforo || "", 
+    dados.sinalizacaoVerticalOutros || "",
+    // Atendimento
+    dados.preenchimentoOcorrencia || "", 
+    dados.preenchimentoOutros || "",
+    dados.autoridadesPresentes || "", 
+    JSON.stringify(dados.dadosAutoridades || []),
+    dados.orgaoGestor || "", 
+    dados.orgaoGestorNome || "", 
+    dados.orgaoGestorResponsavel || "", 
+    dados.orgaoGestorProtocolo || "",
+    dados.anexosLocal || "",
+    // Parecer da operação
+    dados.inspetorChapa || "", 
+    dados.inspetorNomeCompleto || "", 
+    dados.inspetorApelido || "",
+    truncarTexto(dados.visaoInspetor || "", 1400, 16), 
+    dados.atribuicaoCulpa || "", 
+    dados.culpaOutros || "", 
+    dados.motivoCulpa || "",
+    dados.finalizado ? "SIM" : "NÃO"
   ];
   
   if (linhaExistente) {
@@ -223,8 +333,8 @@ function salvarRascunhoAcidente(dados) {
     sheetOcorrencias.appendRow(linhaDados);
   }
   
-  // === Bens (remove antigos e insere novos) ===
-  if (sheetBens.getLastRow() > 1) {
+  // === Bens Avariados (remove antigos e insere novos) ===
+  if (sheetBens && sheetBens.getLastRow() > 1) {
     var allBens = sheetBens.getDataRange().getValues();
     for (var i = allBens.length - 1; i >= 1; i--) {
       if (String(allBens[i][0]) === String(id)) {
@@ -233,29 +343,107 @@ function salvarRascunhoAcidente(dados) {
     }
   }
   if (dados.bens && dados.bens.length) {
-    dados.bens.forEach(function(bem) {
-      sheetBens.appendRow([id, bem.tipoBem, bem.placa, bem.ano, bem.cor, bem.modelo, bem.renavan,
-                           bem.proprietario, bem.telefone, truncarTexto(bem.danos, 500, 5), bem.anexos || ""]);
+    dados.bens.forEach(function(bem, index) {
+      sheetBens.appendRow([
+        id, 
+        "Veículo " + (index + 1), 
+        bem.tipoBem || "", 
+        bem.placa || "", 
+        bem.ano || "", 
+        bem.cor || "", 
+        bem.modelo || "", 
+        bem.renavan || "",
+        bem.proprietario || "", 
+        bem.telefone || "", 
+        truncarTexto(bem.danos || "", 500, 5), 
+        bem.anexos || ""
+      ]);
     });
   }
   
-  // === Pessoas ===
-  if (sheetPessoas.getLastRow() > 1) {
-    var allPessoas = sheetPessoas.getDataRange().getValues();
-    for (var j = allPessoas.length - 1; j >= 1; j--) {
-      if (String(allPessoas[j][0]) === String(id)) {
-        sheetPessoas.deleteRow(j + 1);
+  // === Vítimas (remove antigas e insere novas) ===
+  if (sheetVitimas && sheetVitimas.getLastRow() > 1) {
+    var allVitimas = sheetVitimas.getDataRange().getValues();
+    for (var j = allVitimas.length - 1; j >= 1; j--) {
+      if (String(allVitimas[j][0]) === String(id)) {
+        sheetVitimas.deleteRow(j + 1);
       }
     }
   }
-  if (dados.pessoas && dados.pessoas.length) {
-    dados.pessoas.forEach(function(pessoa) {
-      sheetPessoas.appendRow([id, pessoa.tipo, pessoa.nome, pessoa.documento, pessoa.contato, truncarTexto(pessoa.observacoes, 300, 5)]);
+  if (dados.vitimas && dados.vitimas.length) {
+    dados.vitimas.forEach(function(vitima, index) {
+      sheetVitimas.appendRow([
+        id, 
+        "Vítima " + (index + 1), 
+        vitima.nome || "", 
+        vitima.documento || "", 
+        vitima.contato || "", 
+        vitima.endereco || "", 
+        truncarTexto(vitima.observacoes || "", 300, 5),
+        vitima.anexos || ""
+      ]);
+    });
+  }
+  
+  // === Testemunhas (remove antigas e insere novas) ===
+  if (sheetTestemunhas && sheetTestemunhas.getLastRow() > 1) {
+    var allTestemunhas = sheetTestemunhas.getDataRange().getValues();
+    for (var k = allTestemunhas.length - 1; k >= 1; k--) {
+      if (String(allTestemunhas[k][0]) === String(id)) {
+        sheetTestemunhas.deleteRow(k + 1);
+      }
+    }
+  }
+  if (dados.testemunhas && dados.testemunhas.length) {
+    dados.testemunhas.forEach(function(testemunha, index) {
+      sheetTestemunhas.appendRow([
+        id, 
+        "Testemunha " + (index + 1), 
+        testemunha.nome || "", 
+        testemunha.documento || "", 
+        testemunha.contato || "", 
+        testemunha.endereco || "", 
+        truncarTexto(testemunha.relato || "", 300, 5),
+        testemunha.anexos || ""
+      ]);
     });
   }
   
   return { success: true, id: id };
 }
+
+// ====================================================================
+// FINALIZAR ACIDENTE (marca como finalizado no banco de dados)
+// ====================================================================
+function finalizarAcidente(id) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
+  
+  if (!sheetOcorrencias || sheetOcorrencias.getLastRow() <= 1) {
+    return false;
+  }
+  
+  // Buscar linha do acidente
+  var lastRow = sheetOcorrencias.getLastRow();
+  var idsRange = sheetOcorrencias.getRange(2, 1, lastRow - 1, 1);
+  var ids = idsRange.getValues().map(function(row) { return String(row[0]); });
+  var index = ids.indexOf(String(id));
+  
+  if (index === -1) {
+    return false;
+  }
+  
+  var linhaExistente = index + 2;
+  var colFinalizado = 38; // Coluna "Finalizado" (última coluna)
+  
+  // Atualizar status para finalizado
+  sheetOcorrencias.getRange(linhaExistente, colFinalizado).setValue("SIM");
+  sheetOcorrencias.getRange(linhaExistente, 2).setValue("FINALIZADO");
+  sheetOcorrencias.getRange(linhaExistente, 4).setValue(Utilities.formatDate(new Date(), "America/Sao_Paulo", "dd/MM/yyyy HH:mm:ss"));
+  
+  return true;
+}
+
 // ====================================================================
 // CONSULTAR ACIDENTES
 // ====================================================================
@@ -331,19 +519,23 @@ function consultarAcidentes(filtros, papel, apelido) {
 }
 
 // ====================================================================
-// BUSCAR ACIDENTE POR ID
+// BUSCAR ACIDENTE POR ID (com todas as abas)
 // ====================================================================
 function buscarAcidentePorId(id) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
   var sheetBens = ss.getSheetByName("BensAvariados");
-  var sheetPessoas = ss.getSheetByName("VitimasTestemunhas");
+  var sheetVitimas = ss.getSheetByName("Vitimas");
+  var sheetTestemunhas = ss.getSheetByName("Testemunhas");
   
   if (!sheetOcorrencias || sheetOcorrencias.getLastRow() <= 1) return null;
   var ocorrencias = sheetOcorrencias.getDataRange().getValues();
+  var cabecalhos = ocorrencias[0];
   var ocorrencia = null;
+  
   for (var i=1; i<ocorrencias.length; i++) {
     if (ocorrencias[i][0] == id) {
+      // Mapear todos os campos da ocorrência
       ocorrencia = {
         id: ocorrencias[i][0],
         status: ocorrencias[i][1],
@@ -353,48 +545,155 @@ function buscarAcidentePorId(id) {
         dataAcidente: ocorrencias[i][5],
         horaAcidente: ocorrencias[i][6],
         local: ocorrencias[i][7],
-        descricaoAnalise: ocorrencias[i][8],
-        anexosPrincipais: ocorrencias[i][9],
-        prefixo: ocorrencias[i][10],
-        motoristaChapa: ocorrencias[i][11],
-        finalizado: ocorrencias[i][12] === "SIM"
+        tipoAcidente: ocorrencias[i][8],
+        // Dados da linha
+        linhaCodigo: ocorrencias[i][9],
+        linhaNome: ocorrencias[i][10],
+        linhaSentido: ocorrencias[i][11],
+        // Dados do ônibus
+        onibusPrefixo: ocorrencias[i][12],
+        onibusPlaca: ocorrencias[i][13],
+        onibusRenavan: ocorrencias[i][14],
+        onibusAno: ocorrencias[i][15],
+        onibusMarca: ocorrencias[i][16],
+        onibusModelo: ocorrencias[i][17],
+        onibusCor: ocorrencias[i][18],
+        onibusCidade: ocorrencias[i][19],
+        // Dados do motorista
+        motoristaChapa: ocorrencias[i][20],
+        motoristaNomeEscala: ocorrencias[i][21],
+        motoristaNomeCompleto: ocorrencias[i][22],
+        motoristaCNH: ocorrencias[i][23],
+        motoristaCNHValidade: ocorrencias[i][24],
+        motoristaEndereco: ocorrencias[i][25],
+        motoristaBairro: ocorrencias[i][26],
+        motoristaCidade: ocorrencias[i][27],
+        motoristaComplemento: ocorrencias[i][28],
+        motoristaNascimento: ocorrencias[i][29],
+        motoristaNaturalidade: ocorrencias[i][30],
+        motoristaNomeMae: ocorrencias[i][31],
+        motoristaCelular: ocorrencias[i][32],
+        // Histórico e anexos
+        historicoDescricao: ocorrencias[i][33],
+        fotoCNH: ocorrencias[i][34],
+        anexosColetivo: ocorrencias[i][35],
+        // Análise do acidente
+        situacaoOnibus: ocorrencias[i][36],
+        movimentacaoOnibus: ocorrencias[i][37],
+        velocidade: ocorrencias[i][38],
+        localParado: ocorrencias[i][39],
+        lotacao: ocorrencias[i][40],
+        parteAvariada: ocorrencias[i][41],
+        danosResultantes: ocorrencias[i][42],
+        periodo: ocorrencias[i][43],
+        clima: ocorrencias[i][44],
+        iluminacao: ocorrencias[i][45],
+        visibilidadeAcidente: ocorrencias[i][46],
+        tipoAcidenteAnalise: ocorrencias[i][47],
+        // Perfil da via
+        perfilViaRetaCurva: ocorrencias[i][48],
+        perfilViaPlanoAcliveDeclive: ocorrencias[i][49],
+        tipoVia: ocorrencias[i][50],
+        sentidoVia: ocorrencias[i][51],
+        numFaixas: ocorrencias[i][52],
+        // Condição da via
+        condicaoViaPavimentacao: ocorrencias[i][53],
+        condicaoViaConservacao: ocorrencias[i][54],
+        condicaoViaSituacao: ocorrencias[i][55],
+        condicaoViaSinalizacaoSolo: ocorrencias[i][56],
+        condicaoViaSinalizacaoVertical: ocorrencias[i][57],
+        condicaoViaSemaforo: ocorrencias[i][58],
+        sinalizacaoVerticalOutros: ocorrencias[i][59],
+        // Atendimento
+        preenchimentoOcorrencia: ocorrencias[i][60],
+        preenchimentoOutros: ocorrencias[i][61],
+        autoridadesPresentes: ocorrencias[i][62],
+        dadosAutoridades: JSON.parse(ocorrencias[i][63] || "[]"),
+        orgaoGestor: ocorrencias[i][64],
+        orgaoGestorNome: ocorrencias[i][65],
+        orgaoGestorResponsavel: ocorrencias[i][66],
+        orgaoGestorProtocolo: ocorrencias[i][67],
+        anexosLocal: ocorrencias[i][68],
+        // Parecer da operação
+        inspetorChapa: ocorrencias[i][69],
+        inspetorNomeCompleto: ocorrencias[i][70],
+        inspetorApelido: ocorrencias[i][71],
+        visaoInspetor: ocorrencias[i][72],
+        atribuicaoCulpa: ocorrencias[i][73],
+        culpaOutros: ocorrencias[i][74],
+        motivoCulpa: ocorrencias[i][75],
+        finalizado: ocorrencias[i][76] === "SIM"
       };
       break;
     }
   }
+  
   if (!ocorrencia) return null;
   
-  // Bens
+  // Bens Avariados
   var bens = [];
   if (sheetBens && sheetBens.getLastRow() > 1) {
     var bensData = sheetBens.getDataRange().getValues();
     for (var j=1; j<bensData.length; j++) {
       if (bensData[j][0] == id) {
         bens.push({
-          tipoBem: bensData[j][1], placa: bensData[j][2], ano: bensData[j][3],
-          cor: bensData[j][4], modelo: bensData[j][5], renavan: bensData[j][6],
-          proprietario: bensData[j][7], telefone: bensData[j][8], danos: bensData[j][9],
-          anexos: bensData[j][10]
+          numeroVeiculo: bensData[j][1],
+          tipoBem: bensData[j][2], 
+          placa: bensData[j][3], 
+          ano: bensData[j][4],
+          cor: bensData[j][5], 
+          modelo: bensData[j][6], 
+          renavan: bensData[j][7],
+          proprietario: bensData[j][8], 
+          telefone: bensData[j][9], 
+          danos: bensData[j][10],
+          anexos: bensData[j][11]
         });
       }
     }
   }
   ocorrencia.bens = bens;
   
-  // Pessoas
-  var pessoas = [];
-  if (sheetPessoas && sheetPessoas.getLastRow() > 1) {
-    var pessoasData = sheetPessoas.getDataRange().getValues();
-    for (var k=1; k<pessoasData.length; k++) {
-      if (pessoasData[k][0] == id) {
-        pessoas.push({
-          tipo: pessoasData[k][1], nome: pessoasData[k][2], documento: pessoasData[k][3],
-          contato: pessoasData[k][4], observacoes: pessoasData[k][5]
+  // Vítimas
+  var vitimas = [];
+  if (sheetVitimas && sheetVitimas.getLastRow() > 1) {
+    var vitimasData = sheetVitimas.getDataRange().getValues();
+    for (var k=1; k<vitimasData.length; k++) {
+      if (vitimasData[k][0] == id) {
+        vitimas.push({
+          numeroVítima: vitimasData[k][1],
+          nome: vitimasData[k][2], 
+          documento: vitimasData[k][3],
+          contato: vitimasData[k][4], 
+          endereco: vitimasData[k][5], 
+          observacoes: vitimasData[k][6],
+          anexos: vitimasData[k][7]
         });
       }
     }
   }
-  ocorrencia.pessoas = pessoas;
+  ocorrencia.vitimas = vitimas;
+  
+  // Testemunhas
+  var testemunhas = [];
+  if (sheetTestemunhas && sheetTestemunhas.getLastRow() > 1) {
+    var testemunhasData = sheetTestemunhas.getDataRange().getValues();
+    for (var m=1; m<testemunhasData.length; m++) {
+      if (testemunhasData[m][0] == id) {
+        testemunhas.push({
+          numeroTestemunha: testemunhasData[m][1],
+          nome: testemunhasData[m][2], 
+          documento: testemunhasData[m][3],
+          contato: testemunhasData[m][4], 
+          endereco: testemunhasData[m][5], 
+          relato: testemunhasData[m][6],
+          anexos: testemunhasData[m][7]
+        });
+      }
+    }
+  }
+  ocorrencia.testemunhas = testemunhas;
+  
   return ocorrencia;
 }
 
