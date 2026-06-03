@@ -22,6 +22,11 @@ async function checkLoginStatus() {
     insp.style.display = 'flex';
     showWelcomeToast(apelido);
     
+    // Verificar ocorrências incompletas após o toast
+    setTimeout(() => {
+      verificarOcorrenciasIncompletas();
+    }, 4000);
+    
     const logoutBtn = insp.querySelector('.logout-btn');
     if (logoutBtn) logoutBtn.innerHTML = `Sair<small>${apelido}</small>`;
   } else {
@@ -34,6 +39,99 @@ async function checkLoginStatus() {
     main.style.display = 'flex';
     insp.style.display = 'none';
   }
+}
+
+// ====================================================================
+// VERIFICAR OCORRÊNCIAS INCOMPLETAS
+// ====================================================================
+function verificarOcorrenciasIncompletas() {
+  const currentUser = localStorage.getItem('inspectorApelido');
+  if (!currentUser) return;
+  
+  // Buscar todos os rascunhos no localStorage
+  const ocorrenciasIncompletas = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('rascunho_acidente_')) {
+      try {
+        const dados = JSON.parse(localStorage.getItem(key));
+        // Verificar se o rascunho pertence ao usuário atual e não está finalizado
+        if (dados.fiscal === currentUser && !dados.finalizado) {
+          ocorrenciasIncompletas.push({
+            id: dados.id,
+            prefixo: dados.cadastro?.prefixo || 'N/A',
+            apelido: dados.cadastro?.apelido || 'N/A',
+            data: dados.cadastro?.data || ''
+          });
+        }
+      } catch (e) {
+        console.warn('Erro ao ler rascunho:', key, e);
+      }
+    }
+  }
+  
+  if (ocorrenciasIncompletas.length > 0) {
+    mostrarModalOcorrenciasIncompletas(ocorrenciasIncompletas);
+  }
+}
+
+function mostrarModalOcorrenciasIncompletas(ocorrencias) {
+  // Criar modal dinamicamente se não existir
+  let modal = document.getElementById('modal-ocorrencias-incompletas');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-ocorrencias-incompletas';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">⚠️ Ocorrências Incompletas</h2>
+          <button class="modal-close" onclick="fecharModalOcorrenciasIncompletas()">×</button>
+        </div>
+        <div class="modal-body">
+          <p>Existem ${ocorrencias.length} ocorrência(s) incompleta(s) em seu perfil:</p>
+          <div id="lista-ocorrencias-incompletas" class="lista-ocorrencias"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="button" onclick="abrirNovaOcorrencia()">➕ Nova Ocorrência</button>
+          <button type="button" class="button-secundario" onclick="fecharModalOcorrenciasIncompletas()">Fechar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  
+  // Preencher lista
+  const lista = modal.querySelector('#lista-ocorrencias-incompletas');
+  if (lista) {
+    let html = '<table class="tabela-ocorrencias"><thead><tr><th>Prefixo</th><th>Motorista</th><th>Ações</th></tr></thead><tbody>';
+    ocorrencias.forEach(oc => {
+      html += `<tr>
+        <td>${oc.prefixo}</td>
+        <td>${oc.apelido}</td>
+        <td><button class="btn-editar" onclick="editarOcorrencia('${oc.id}')" title="Editar"><i class="fas fa-pencil-alt"></i></button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    lista.innerHTML = html;
+  }
+  
+  modal.classList.add('is-open');
+}
+
+function fecharModalOcorrenciasIncompletas() {
+  const modal = document.getElementById('modal-ocorrencias-incompletas');
+  if (modal) modal.classList.remove('is-open');
+}
+
+function editarOcorrencia(acidenteId) {
+  fecharModalOcorrenciasIncompletas();
+  abrirModalEnvio(acidenteId);
+}
+
+function abrirNovaOcorrencia() {
+  fecharModalOcorrenciasIncompletas();
+  abrirModalEnvio();
 }
 
 // ====================================================================
@@ -131,3 +229,10 @@ function mostrarBannerAviso() {
   const banner = getEl('aviso-temporario');
   if (banner) banner.style.display = (agora >= DATA_INICIO_BANNER && agora < DATA_FIM_BANNER) ? 'flex' : 'none';
 }
+
+// Exportar funções para o escopo global
+window.verificarOcorrenciasIncompletas = verificarOcorrenciasIncompletas;
+window.mostrarModalOcorrenciasIncompletas = mostrarModalOcorrenciasIncompletas;
+window.fecharModalOcorrenciasIncompletas = fecharModalOcorrenciasIncompletas;
+window.editarOcorrencia = editarOcorrencia;
+window.abrirNovaOcorrencia = abrirNovaOcorrencia;
