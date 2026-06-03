@@ -194,7 +194,7 @@ function preencherFormularioComDados(dados) {
   if (dados.cadastro) {
     Object.keys(dados.cadastro).forEach(key => {
       const el = getEl(`cadastro-${key}`);
-      if (el) el.value = dados.cadastro[key];
+      if (el && key !== 'fotoCNH') el.value = dados.cadastro[key];
     });
   }
   
@@ -210,14 +210,56 @@ function preencherFormularioComDados(dados) {
   if (dados.bens) { bensArray = dados.bens; renderizarBensFixos(); }
   if (dados.vitimas) { vitimasArray = dados.vitimas; renderizarVitimasFixas(); }
   if (dados.testemunhas) { testemunhasArray = dados.testemunhas; renderizarTestemunhasFixas(); }
-  if (dados.fotosColetivo) { fotosColetivoArray = dados.fotosColetivo; renderizarFotosColetivo(); }
-  if (dados.fotosLocal) { fotosLocalArray = dados.fotosLocal; renderizarFotosLocal(); }
+  
+  // Avisar se havia fotos no rascunho original
+  if (dados._temFotos) {
+    console.log('ℹ️ Este rascunho continha fotos que não foram salvas localmente. Você precisará reenviá-las.');
+  } else {
+    if (dados.fotosColetivo) { fotosColetivoArray = dados.fotosColetivo; renderizarFotosColetivo(); }
+    if (dados.fotosLocal) { fotosLocalArray = dados.fotosLocal; renderizarFotosLocal(); }
+  }
 }
 
 function salvarRascunhoLocal() {
-  const dados = montarObjetoAcidenteCompleto();
-  const chave = `rascunho_acidente_${acidenteAtualId}`;
-  localStorage.setItem(chave, JSON.stringify(dados));
+  try {
+    const dados = montarObjetoAcidenteCompleto();
+    
+    // Criar cópia para rascunho SEM as fotos (para não estourar quota do localStorage)
+    const dadosParaRascunho = {
+      id: dados.id,
+      status: dados.status,
+      fiscal: dados.fiscal,
+      cadastro: { ...dados.cadastro, fotoCNH: null }, // Remove foto CNH
+      analise: dados.analise,
+      bens: dados.bens,
+      vitimas: dados.vitimas,
+      testemunhas: dados.testemunhas,
+      parecer: dados.parecer,
+      fotosColetivo: [], // Remove fotos coletivo
+      fotosLocal: [],    // Remove fotos local
+      finalizado: dados.finalizado,
+      _temFotos: !!(dados.cadastro.fotoCNH || dados.fotosColetivo?.length || dados.fotosLocal?.length)
+    };
+    
+    const chave = `rascunho_acidente_${acidenteAtualId}`;
+    const dadosString = JSON.stringify(dadosParaRascunho);
+    
+    // Verificar tamanho antes de salvar
+    const tamanhoEstimado = new Blob([dadosString]).size;
+    if (tamanhoEstimado > 4 * 1024 * 1024) { // 4MB de segurança
+      console.warn('⚠️ Rascunho muito grande (' + Math.round(tamanhoEstimado/1024) + 'KB). Salvamento local pode falhar.');
+    }
+    
+    localStorage.setItem(chave, dadosString);
+    console.log('✓ Rascunho salvo localmente (' + Math.round(tamanhoEstimado/1024) + 'KB)');
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      console.error('❌ Quota do localStorage excedida! Dados podem ter sido perdidos no rascunho local.');
+      alert('⚠️ Aviso: O rascunho local não pôde ser salvo devido ao limite de armazenamento do navegador.\n\nIsso não afeta o salvamento final no servidor. Recomendamos finalizar o relatório o quanto antes.');
+    } else {
+      console.error('Erro ao salvar rascunho local:', e);
+    }
+  }
 }
 
 // ====================================================================
@@ -371,14 +413,17 @@ async function finalizarAcidenteCompleto() {
   dados.status = 'FINALIZADO';
   
   try {
-    // Salvar rascunho final
+    // Salvar rascunho final no backend (com fotos completas)
     await salvarNoBackend(dados, 'salvar_rascunho_acidente');
     
     // Finalizar
     await salvarNoBackend({ id: acidenteAtualId }, 'finalizar_acidente');
     
     alert('✅ Relatório finalizado e enviado com sucesso!');
+    
+    // Limpar rascunho local após salvamento bem-sucedido
     localStorage.removeItem(`rascunho_acidente_${acidenteAtualId}`);
+    
     fecharModalEnvio();
     
     // Recarregar consulta se estiver aberta
@@ -388,7 +433,7 @@ async function finalizarAcidenteCompleto() {
     }
   } catch (error) {
     console.error('Erro ao finalizar:', error);
-    alert('Erro ao finalizar o relatório. Verifique o console.');
+    alert('Erro ao finalizar o relatório. Verifique o console.\n\nDica: Se o erro persistir, verifique sua conexão com a internet.');
   }
 }
 
