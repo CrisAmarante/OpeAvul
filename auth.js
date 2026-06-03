@@ -44,18 +44,62 @@ async function checkLoginStatus() {
 // ====================================================================
 // VERIFICAR OCORRÊNCIAS INCOMPLETAS
 // ====================================================================
-function verificarOcorrenciasIncompletas() {
+async function verificarOcorrenciasIncompletas() {
   const currentUser = localStorage.getItem('inspectorApelido');
   if (!currentUser) return;
   
-  // Buscar todos os rascunhos no localStorage
+  try {
+    // Buscar ocorrências incompletas no backend
+    const url = `${URL_PLANILHA}?acao=buscar_ocorrencias_incompletas&apelido=${encodeURIComponent(currentUser)}`;
+    const response = await fetch(url);
+    const ocorrenciasBackend = await response.json();
+    
+    // Também buscar rascunhos locais (para casos offline ou não sincronizados)
+    const ocorrenciasLocais = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('rascunho_acidente_')) {
+        try {
+          const dados = JSON.parse(localStorage.getItem(key));
+          if (dados.fiscal === currentUser && !dados.finalizado) {
+            // Verificar se já não está no backend
+            const existeNoBackend = ocorrenciasBackend.some(o => o.id === dados.id);
+            if (!existeNoBackend) {
+              ocorrenciasLocais.push({
+                id: dados.id,
+                prefixo: dados.cadastro?.prefixo || 'N/A',
+                apelido: dados.cadastro?.apelido || 'N/A',
+                data: dados.cadastro?.data || '',
+                origem: 'local'
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('Erro ao ler rascunho local:', key, e);
+        }
+      }
+    }
+    
+    // Combinar resultados (backend tem prioridade)
+    const todasOcorrencias = [...ocorrenciasBackend, ...ocorrenciasLocais];
+    
+    if (todasOcorrencias.length > 0) {
+      mostrarModalOcorrenciasIncompletas(todasOcorrencias);
+    }
+  } catch (e) {
+    console.error('Erro ao verificar ocorrências incompletas:', e);
+    // Fallback para busca local em caso de erro
+    fallbackVerificacaoLocal(currentUser);
+  }
+}
+
+function fallbackVerificacaoLocal(currentUser) {
   const ocorrenciasIncompletas = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('rascunho_acidente_')) {
       try {
         const dados = JSON.parse(localStorage.getItem(key));
-        // Verificar se o rascunho pertence ao usuário atual e não está finalizado
         if (dados.fiscal === currentUser && !dados.finalizado) {
           ocorrenciasIncompletas.push({
             id: dados.id,
@@ -89,7 +133,7 @@ function mostrarModalOcorrenciasIncompletas(ocorrencias) {
           <button class="modal-close" onclick="fecharModalOcorrenciasIncompletas()">×</button>
         </div>
         <div class="modal-body">
-          <p>Existem ${ocorrencias.length} ocorrência(s) incompleta(s) em seu perfil:</p>
+          <p>Existe(m) <strong>${ocorrencias.length} ocorrência(s) incompleta(s)</strong> em seu perfil:</p>
           <div id="lista-ocorrencias-incompletas" class="lista-ocorrencias"></div>
         </div>
         <div class="modal-footer">
@@ -106,9 +150,11 @@ function mostrarModalOcorrenciasIncompletas(ocorrencias) {
   if (lista) {
     let html = '<table class="tabela-ocorrencias"><thead><tr><th>Prefixo</th><th>Motorista</th><th>Ações</th></tr></thead><tbody>';
     ocorrencias.forEach(oc => {
+      // Buscar nome do motorista pela chapa se disponível
+      const motoristaDisplay = oc.motoristaChapa ? `${oc.apelido} (${oc.motoristaChapa})` : oc.apelido;
       html += `<tr>
-        <td>${oc.prefixo}</td>
-        <td>${oc.apelido}</td>
+        <td>${oc.prefixo || 'N/A'}</td>
+        <td>${motoristaDisplay || 'N/A'}</td>
         <td><button class="btn-editar" onclick="editarOcorrencia('${oc.id}')" title="Editar"><i class="fas fa-pencil-alt"></i></button></td>
       </tr>`;
     });
