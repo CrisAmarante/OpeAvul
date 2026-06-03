@@ -123,4 +123,13 @@ O checkbox situação quando transitando deve ser de seleção única (em frente
 Os checkbox de Condições climáticas e condições de visibilidade devem ser de seleção única em cada um dos subitens, Ilumimnção, Visibilidade do acidente, Tipo de acidente;
 
 O checkbox de preenchimento da ocorrencia, (No local dos fatos, Na garagem, No terminal, Delegacia ou pronto socorro, Outros) deve ser de seleção única.
+========================================================================================================================================================
+
+A lista de linhas não está sendo carregada no item Dados da linha, aba Cadastro de Acidentes. Os dados estão na aba Cadastro_Linhas do google sheets, cabeçalhos: ID	Descrição	Número	Núcleo	Cobrador	Sábado	Domingo	Feriado; a busca é pelo número (Coluna C) e o nome da linha está na coluna B.
+
+No item Dados do ônibus, cujos dados estão na aba Cadastro_Veiculos, com os cabeçalhos: PREFIXO	PLACA	RENAVAM	TIPO_VEICULO	TIPO_FROTA	CODIGO_ESTADO	CODIGO_GARAGEM	MODELO_CHASSI	MARCA_CHASSI	MODELO_CARROCERIA	MARCA_CARROCERIA	PADRAO_COR	GARAGEM	SITUACAO. A busca é pelo prefixo e os dados de de Renavam, Marca (Carroceria) e Modelo carroceria não estão carregando.
+
+No item Dados do motorista, os dados CNH, Validade da CNH, ENdereço (Logradouro), etc...que não constam da aba Cadastro_Operadores, devem ser habilitados para edição.
+
+
   
