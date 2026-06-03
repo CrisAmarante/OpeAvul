@@ -126,10 +126,11 @@ O checkbox de preenchimento da ocorrencia, (No local dos fatos, Na garagem, No t
 ========================================================================================================================================================
 
 A lista de linhas não está sendo carregada no item Dados da linha, aba Cadastro de Acidentes. Os dados estão na aba Cadastro_Linhas do google sheets, cabeçalhos: ID	Descrição	Número	Núcleo	Cobrador	Sábado	Domingo	Feriado; a busca é pelo número (Coluna C) e o nome da linha está na coluna B.
+========================================================================================================================================================
 
-No item Dados do ônibus, cujos dados estão na aba Cadastro_Veiculos, com os cabeçalhos: PREFIXO	PLACA	RENAVAM	TIPO_VEICULO	TIPO_FROTA	CODIGO_ESTADO	CODIGO_GARAGEM	MODELO_CHASSI	MARCA_CHASSI	MODELO_CARROCERIA	MARCA_CARROCERIA	PADRAO_COR	GARAGEM	SITUACAO. A busca é pelo prefixo e os dados de de Renavam, Marca (Carroceria) e Modelo carroceria não estão carregando.
+***ABA Análise do Acidente, no item Perfil da sinalização, na linha em que estão os itens de checkbox "Sentido da Via"  (Mão única; mão dupla) e em seguida há um checkbox com os itens: uma, duas, três ou mais, está faltando o subtítulo "Nº de faixas" (semelhante ao usado em sentido da via);
 
-No item Dados do motorista, os dados CNH, Validade da CNH, ENdereço (Logradouro), etc...que não constam da aba Cadastro_Operadores, devem ser habilitados para edição.
+
 
 
   
