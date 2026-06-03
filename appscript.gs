@@ -275,6 +275,63 @@ function salvarRascunhoAcidente(dados) {
   return { success: true, id: id };
 }
 // ====================================================================
+// BUSCAR OCORRÊNCIAS INCOMPLETAS POR USUÁRIO
+// ====================================================================
+function buscarOcorrenciasIncompletas(apelido) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Ocorrencias_acidentes");
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  var dados = sheet.getDataRange().getValues();
+  
+  var cabecalhos = dados[0];
+  var idxId = cabecalhos.indexOf("ID");
+  var idxStatus = cabecalhos.indexOf("Status");
+  var idxFiscal = cabecalhos.indexOf("FiscalCriador");
+  var idxPrefixo = cabecalhos.indexOf("Prefixo");
+  var idxMotoristaChapa = cabecalhos.indexOf("MotoristaChapa");
+  var idxFinalizado = cabecalhos.indexOf("Finalizado");
+  var idxDataAtualizacao = cabecalhos.indexOf("DataAtualizacao");
+  
+  var resultados = [];
+  
+  for (var i=1; i<dados.length; i++) {
+    var linha = dados[i];
+    var fiscalLinha = linha[idxFiscal];
+    var finalizado = linha[idxFinalizado] === "SIM";
+    
+    // Apenas ocorrências não finalizadas do usuário
+    if (fiscalLinha !== apelido || finalizado) continue;
+    
+    resultados.push({
+      id: linha[idxId],
+      status: linha[idxStatus],
+      fiscal: fiscalLinha,
+      prefixo: linha[idxPrefixo] || "N/A",
+      motoristaChapa: linha[idxMotoristaChapa] || "",
+      dataAtualizacao: linha[idxDataAtualizacao] || ""
+    });
+  }
+  
+  // Ordenar por data de atualização (mais recente primeiro)
+  resultados.sort((a,b) => {
+    var da = a.dataAtualizacao || "";
+    var db = b.dataAtualizacao || "";
+    // Converter dd/MM/yyyy HH:mm:ss para comparação
+    var parseDate = function(d) {
+      if (!d) return "";
+      var partes = d.split(' ')[0].split('/');
+      if (partes.length === 3) {
+        return partes[2] + partes[1] + partes[0];
+      }
+      return d;
+    };
+    return parseDate(db).localeCompare(parseDate(da));
+  });
+  
+  return resultados;
+}
+
+// ====================================================================
 // CONSULTAR ACIDENTES
 // ====================================================================
 function consultarAcidentes(filtros, papel, apelido) {
@@ -581,6 +638,12 @@ function doGet(e) {
       var termoLinha = e.parameter.termo;
       var linhas = buscarLinhas(termoLinha);
       return enviarResposta(linhas);
+    }
+    
+    if (acao === "buscar_ocorrencias_incompletas") {
+      var apelidoUsuario = e.parameter.apelido || '';
+      var ocorrencias = buscarOcorrenciasIncompletas(apelidoUsuario);
+      return enviarResposta(ocorrencias);
     }
     
     return enviarErro("Ação inválida: " + acao);
