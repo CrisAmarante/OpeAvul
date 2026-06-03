@@ -49,6 +49,9 @@ function initAcidenteModal() {
   // Inicializar autocomplete
   iniciarAutoComplete();
 
+  // Carregar lista de linhas no select
+  carregarListaLinhas();
+
   // Preencher data atual
   preencherDataAtual();
 }
@@ -573,11 +576,13 @@ async function buscarDadosLinha() {
   if (codigo.length < 2) return;
   
   try {
-    const url = `${URL_PLANILHA}?acao=buscar_linha&codigo=${encodeURIComponent(codigo)}`;
+    const url = `${URL_PLANILHA}?acao=buscar_linhas&termo=${encodeURIComponent(codigo)}`;
     const resp = await fetch(url);
-    const linha = await resp.json();
-    if (linha && linha.codigo) {
-      if (getEl('cadastro-nome-linha')) getEl('cadastro-nome-linha').value = linha.nome || '';
+    const linhas = await resp.json();
+    if (linhas && linhas.length > 0) {
+      // Pega a primeira linha encontrada
+      const linha = linhas[0];
+      if (getEl('cadastro-nome-linha')) getEl('cadastro-nome-linha').value = linha.nome || linha.descricao || '';
       if (getEl('cadastro-sentido-linha')) getEl('cadastro-sentido-linha').value = linha.sentido || '';
     }
   } catch (e) { console.warn('Erro ao buscar linha', e); }
@@ -1135,6 +1140,42 @@ function iniciarAutoComplete() {
 }
 
 // ====================================================================
+// CARREGAR LISTA DE LINHAS
+// ====================================================================
+async function carregarListaLinhas() {
+  const selectLinha = getEl('cadastro-codigo-linha');
+  if (!selectLinha) return;
+  
+  try {
+    const url = `${URL_PLANILHA}?acao=buscar_linhas&termo=`;
+    const resp = await fetch(url);
+    const linhas = await resp.json();
+    
+    // Limpa opções existentes (mantém a primeira vazia)
+    selectLinha.innerHTML = '<option value="">Selecione...</option>';
+    
+    if (linhas && linhas.length > 0) {
+      // Ordena por número da linha
+      linhas.sort((a, b) => {
+        const numA = parseInt(a.numero) || 0;
+        const numB = parseInt(b.numero) || 0;
+        return numA - numB;
+      });
+      
+      // Adiciona todas as linhas ao select
+      linhas.forEach(linha => {
+        const option = document.createElement('option');
+        option.value = linha.numero;
+        option.textContent = `${linha.numero} - ${linha.nome}`;
+        selectLinha.appendChild(option);
+      });
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar lista de linhas:', e);
+  }
+}
+
+// ====================================================================
 // UTILITÁRIOS
 // ====================================================================
 function getEl(id) {
@@ -1234,6 +1275,7 @@ window.buscarCEP = buscarCEP;
 window.buscarDadosLinha = buscarDadosLinha;
 window.buscarDadosVeiculo = buscarDadosVeiculo;
 window.buscarDadosMotorista = buscarDadosMotorista;
+window.carregarListaLinhas = carregarListaLinhas;
 window.toggleSituacaoOnibus = toggleSituacaoOnibus;
 window.toggleOutrosLocal = toggleOutrosLocal;
 window.toggleOrgaoGestor = toggleOrgaoGestor;
