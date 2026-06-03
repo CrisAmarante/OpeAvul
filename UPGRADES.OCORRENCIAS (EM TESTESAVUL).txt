@@ -130,6 +130,23 @@ A lista de linhas não está sendo carregada no item Dados da linha, aba Cadastr
 
 ***ABA Análise do Acidente, no item Perfil da sinalização, na linha em que estão os itens de checkbox "Sentido da Via"  (Mão única; mão dupla) e em seguida há um checkbox com os itens: uma, duas, três ou mais, está faltando o subtítulo "Nº de faixas" (semelhante ao usado em sentido da via);
 
+***** Abas Cadastro de Acidentes, Análise de Acidentes, Bens avriados e Vítimas.
+Habilitar a Cãmera e a busca na galeria dos aparelhos em todos os campos que pedirem upload de imagens, exceção à foto da CNH, no item Histórico do motorista, que só pode ser obtida com uso da câmera.
+
+****Em toda a aplicação
+Tornar todos os campos que dependem de dados carregáveis do banco de dados editáveis, mesmo após carregados.
+
+***após o login
+Permitir que as ocorrencias salvas parcialmente sejam retomadas para finalização: 
+quando o usuário logar e hover ocorrência não finalizada iniciada por ele, após o toast de boas vindas, deve ser gerado um aviso em pop-up, informando "Existe(m) *nº de ocorrências incompletas) ocorrência incompleta em seu perfil".
+e em seguida listar as ocorrências incompletas, com os seguintes dados em cada linha: Prefixo e Apelido do motorista e ao lado um botão de edição (lápis) que irá reabrir a ocorrência selecionada.
+Ao final da lista deve aparecer um botão para registrar nova ocorrência, que abre o modal.
+
+****Aba Cadastro de Acidente
+
+No item Dados da linha, em "código da linha" remover o texto "- undefined" que aparece ao lado do código na lista suspensa, deixando apenas o nº que consta da tabela de origem.
+
+
 
 
 
