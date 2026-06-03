@@ -661,6 +661,7 @@ async function anexarFotosColetivo() {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
+  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosColetivoArray.length + files.length > 6) {
@@ -685,6 +686,7 @@ async function anexarFotosLocal() {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
+  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosLocalArray.length + files.length > 6) {
@@ -709,6 +711,7 @@ async function anexarFotosVeiculo(index) {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
+  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!bensArray[index].fotos) bensArray[index].fotos = [];
@@ -734,6 +737,7 @@ async function anexarFotosVitima(index) {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
+  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!vitimasArray[index].fotos) vitimasArray[index].fotos = [];
@@ -1166,7 +1170,7 @@ async function carregarListaLinhas() {
       linhas.forEach(linha => {
         const option = document.createElement('option');
         option.value = linha.numero;
-        option.textContent = `${linha.numero} - ${linha.nome}`;
+        option.textContent = `${linha.numero} - ${linha.nome || ''}`;
         selectLinha.appendChild(option);
       });
     }
