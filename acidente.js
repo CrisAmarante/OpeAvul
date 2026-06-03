@@ -569,6 +569,72 @@ async function buscarCEP() {
 }
 
 // ====================================================================
+// BUSCAR ENDEREÇO POR CEP (REVERSO - BUSCA CEP A PARTIR DO ENDEREÇO)
+// ====================================================================
+async function buscarEnderecoPorCEP() {
+  const logradouro = getEl('cadastro-logradouro')?.value || '';
+  const bairro = getEl('cadastro-bairro')?.value || '';
+  const cidade = getEl('cadastro-cidade')?.value || '';
+  
+  if (!logradouro && !bairro && !cidade) {
+    alert('Preencha pelo menos um campo de endereço (logradouro, bairro ou cidade)');
+    return;
+  }
+  
+  try {
+    // Usando a API do BrasilAPI para busca reversa de CEP
+    const url = `https://brasilapi.com.br/api/cep/v2/${encodeURIComponent(logradouro || '')}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('CEP não encontrado');
+    const data = await response.json();
+    
+    // Verifica se o bairro e cidade correspondem
+    if (data && Array.isArray(data)) {
+      // Procura o CEP que melhor corresponde
+      const cepEncontrado = data.find(cep => 
+        (!bairro || cep.bairro?.toLowerCase().includes(bairro.toLowerCase())) &&
+        (!cidade || cep.localidade?.toLowerCase().includes(cidade.toLowerCase()))
+      );
+      
+      if (cepEncontrado) {
+        if (getEl('cadastro-cep')) getEl('cadastro-cep').value = cepEncontrado.cep;
+        if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = cepEncontrado.logradouro;
+        if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = cepEncontrado.bairro;
+        if (getEl('cadastro-cidade')) getEl('cadastro-cidade').value = cepEncontrado.localidade;
+        alert('CEP encontrado: ' + cepEncontrado.cep);
+        return;
+      }
+    }
+    
+    // Se não encontrou pela BrasilAPI, tenta OpenStreetMap Nominatim
+    const query = `${logradouro}, ${bairro}, ${cidade}, Brasil`;
+    const nomResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+    const nomData = await nomResponse.json();
+    
+    if (nomData && nomData.length > 0) {
+      const result = nomData[0];
+      // Extrair informações do resultado
+      const display = result.display_name.split(',');
+      if (display.length >= 3) {
+        if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = display[0].trim();
+        if (display.length >= 4) {
+          if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = display[1].trim();
+        }
+        // CEP pode estar em display_name
+        const cepMatch = result.display_name.match(/(\d{5}-?\d{3})/);
+        if (cepMatch && getEl('cadastro-cep')) getEl('cadastro-cep').value = cepMatch[1];
+      }
+      alert('Endereço encontrado! CEP sugerido: ' + (cepMatch ? cepMatch[1] : 'Não disponível'));
+    } else {
+      alert('Não foi possível encontrar o CEP com os dados informados. Preencha manualmente.');
+    }
+  } catch (e) {
+    console.warn('Erro ao buscar endereço por CEP', e);
+    alert('Erro ao buscar CEP pelo endereço. Tente novamente ou preencha manualmente.');
+  }
+}
+
+// ====================================================================
 // BUSCAR DADOS DA LINHA
 // ====================================================================
 async function buscarDadosLinha() {
@@ -661,7 +727,7 @@ async function anexarFotosColetivo() {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
+  // Removido capture para permitir escolha entre câmera e galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosColetivoArray.length + files.length > 6) {
@@ -686,7 +752,7 @@ async function anexarFotosLocal() {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
+  // Removido capture para permitir escolha entre câmera e galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosLocalArray.length + files.length > 6) {
@@ -711,7 +777,7 @@ async function anexarFotosVeiculo(index) {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
+  // Removido capture para permitir escolha entre câmera e galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!bensArray[index].fotos) bensArray[index].fotos = [];
@@ -737,7 +803,7 @@ async function anexarFotosVitima(index) {
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  input.capture = 'environment'; // Abre câmera por padrão, mas permite escolher galeria
+  // Removido capture para permitir escolha entre câmera e galeria
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!vitimasArray[index].fotos) vitimasArray[index].fotos = [];
@@ -1276,6 +1342,7 @@ window.salvarAbaTestemunhas = salvarAbaTestemunhas;
 window.salvarAbaParecer = salvarAbaParecer;
 window.finalizarAcidenteCompleto = finalizarAcidenteCompleto;
 window.buscarCEP = buscarCEP;
+window.buscarEnderecoPorCEP = buscarEnderecoPorCEP;
 window.buscarDadosLinha = buscarDadosLinha;
 window.buscarDadosVeiculo = buscarDadosVeiculo;
 window.buscarDadosMotorista = buscarDadosMotorista;
