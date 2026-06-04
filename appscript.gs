@@ -1,654 +1,382 @@
-// ====================================================================
-// CONFIGURAÇÕES GLOBAIS 
-// ====================================================================
-const ID_PASTA_ANEXOS_ACIDENTES = "1vvjL8WtPMJKYsMfWaUdzYHHbKisOwbwF"; 
+/**
+ * CONFIGURAÇÃO GERAL E INICIALIZAÇÃO
+ */
+var SS = SpreadsheetApp.getActiveSpreadsheet();
 
-// ====================================================================
-// CRIAÇÃO DAS ABAS NECESSÁRIAS (executar uma vez)
-// ====================================================================
-function criarAbasAcidente() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  if (!ss.getSheetByName("Ocorrencias_acidentes")) {
-    var sheet = ss.insertSheet("Ocorrencias_acidentes");
-    sheet.appendRow(["ID", "Status", "DataCriacao", "DataAtualizacao", "FiscalCriador",
-                     "DataAcidente", "HoraAcidente", "Local", "DescricaoAnalise",
-                     "AnexosPrincipais", "Prefixo", "MotoristaChapa", "Finalizado"]);
-  }
-  if (!ss.getSheetByName("BensAvariados")) {
-    var sheet2 = ss.insertSheet("BensAvariados");
-    sheet2.appendRow(["ID_Acidente", "TipoBem", "Placa", "Ano", "Cor", "Modelo", "Renavan",
-                      "Proprietario", "Telefone", "Danos", "Anexos"]);
-  }
-  if (!ss.getSheetByName("VitimasTestemunhas")) {
-    var sheet3 = ss.insertSheet("VitimasTestemunhas");
-    sheet3.appendRow(["ID_Acidente", "Tipo", "Nome", "Documento", "Contato", "Observacoes"]);
-  }
+function onOpen() {
+  verificarEstruturaAbas();
+  var menu = SpreadsheetApp.getUi().createMenu('🛠️ Gestão de Acidentes');
+  menu.addItem('🔄 Atualizar Estrutura das Abas', 'verificarEstruturaAbas');
+  menu.addItem('🧹 Limpar Dados de Teste', 'limparDadosTeste');
+  menu.addToUi();
 }
 
-// ====================================================================
-// FUNÇÕES DE HASH (LOGIN)
-// ====================================================================
-function gerarHashComSalt(senha, salt) {
-  const stringCombinada = senha + salt;
-  const hashBytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, stringCombinada, Utilities.Charset.UTF_8);
-  return hashBytes.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
-}
-
-// ====================================================================
-// LISTAR TERMINAIS (mantido)
-// ====================================================================
-function listarTerminais() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName("Terminais");
-    if (!sheet) {
-      sheet = ss.insertSheet("Terminais");
-      sheet.appendRow(["Terminal", "Status"]);
-      sheet.appendRow(["Terminal A", "SIM"]);
-      sheet.appendRow(["Terminal B", "SIM"]);
-      sheet.appendRow(["Terminal C", "SIM"]);
-      sheet.appendRow(["Terminal D", "SIM"]);
+/**
+ * CRIA OU CORRIGE AS ABAS NECESSÁRIAS
+ */
+function verificarEstruturaAbas() {
+  var abasConfig = [
+    {
+      nome: 'Login',
+      colunas: ['matricula', 'nome', 'apelido', 'senha', 'funcao', 'ativo', 'senha_hash']
+    },
+    {
+      nome: 'Cadastro_Veiculos',
+      colunas: ['PREFIXO', 'PLACA', 'RENAVAM', 'TIPO_VEICULO', 'TIPO_FROTA', 'CODIGO_ESTADO', 'CODIGO_GARAGEM', 'MODELO_CHASSI', 'MARCA_CHASSI', 'MODELO_CARROCERIA', 'MARCA_CARROCERIA', 'PADRAO_COR', 'GARAGEM', 'SITUACAO']
+    },
+    {
+      nome: 'Cadastro_Operadores',
+      colunas: ['Chapa', 'Nome', 'Apelido', 'Situação', 'Função', 'Núcleo', 'CNH', 'CNH Vencimento', 'Naturalidade', 'Nome da Mãe']
+    },
+    {
+      nome: 'Cadastro_Linhas',
+      colunas: ['ID', 'Descrição', 'Número', 'Núcleo', 'Cobrador', 'Sábado', 'Domingo', 'Feriado']
+    },
+    {
+      nome: 'Ocorrencia_acidentes',
+      colunas: ['ID', 'Status', 'DataCriacao', 'DataAtualizacao', 'FiscalCriador', 'DataAcidente', 'HoraAcidente', 'Local', 'DescricaoAnalise', 'AnexosPrincipais', 'Prefixo', 'MotoristaChapa', 'Finalizado']
+    },
+    {
+      nome: 'Log Acessos',
+      colunas: ['DataHora', 'Matricula', 'Nome', 'IP', 'Status', 'Dispositivo']
+    },
+    {
+      nome: 'BensAvariados',
+      colunas: ['ID_Acidente', 'TipoBem', 'Placa', 'Ano', 'Cor', 'Modelo', 'Renavam', 'Proprietario', 'Telefone', 'Danos', 'Anexos_Array']
+    },
+    {
+      nome: 'Vitimas',
+      colunas: ['ID_Acidente', 'Nome', 'Documento_Vitima', 'Contato_Vitima', 'Lesoes', 'Atendimento_vitima', 'Fotos_Array']
+    },
+    {
+      nome: 'Testemunhas',
+      colunas: ['ID_Acidente', 'Nome', 'Documento', 'Contato', 'Relato']
     }
-    const dados = sheet.getDataRange().getValues();
-    const terminais = [];
-    for (let i = 1; i < dados.length; i++) {
-      const terminal = dados[i][0];
-      const status = dados[i][1] ? String(dados[i][1]).trim().toUpperCase() : "";
-      if (terminal && status === "SIM") {
-        terminais.push(String(terminal).trim());
-      }
-    }
-    return terminais;
-  } catch (err) {
-    Logger.log("ERRO em listarTerminais: " + err.message);
-    return ["Terminal A", "Terminal B", "Terminal C", "Terminal D"];
-  }
-}
-
-function listarTodosTerminais() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName("Terminais");
-    if (!sheet) {
-      sheet = ss.insertSheet("Terminais");
-      sheet.appendRow(["Terminal", "Status"]);
-      sheet.appendRow(["Terminal A", "SIM"]);
-      sheet.appendRow(["Terminal B", "SIM"]);
-      sheet.appendRow(["Terminal C", "SIM"]);
-      sheet.appendRow(["Terminal D", "SIM"]);
-    }
-    const dados = sheet.getDataRange().getValues();
-    const terminais = [];
-    for (let i = 1; i < dados.length; i++) {
-      const terminal = dados[i][0];
-      if (terminal) terminais.push(String(terminal).trim());
-    }
-    return terminais;
-  } catch (err) {
-    return ["Terminal A", "Terminal B", "Terminal C", "Terminal D"];
-  }
-}
-
-// ====================================================================
-// FUNÇÕES DE CADASTRO (AUTOCOMPLETE)
-// ====================================================================
-function buscarVeiculoPorPrefixo(prefixo) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Cadastro_Veiculos");
-  if (!sheet) return null;
-  var dados = sheet.getDataRange().getValues();
-  for (var i = 1; i < dados.length; i++) {
-    if (String(dados[i][0]).toUpperCase() === String(prefixo).toUpperCase()) {
-      return {
-        prefixo: dados[i][0],
-        placa: dados[i][1],
-        renavam: dados[i][2],
-        tipoVeiculo: dados[i][3],
-        modeloChassi: dados[i][7],
-        cor: dados[i][11]
-      };
-    }
-  }
-  return null;
-}
-
-function buscarOperadorPorChapaOuNome(termo) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Cadastro_operadores");
-  if (!sheet) return [];
-  var dados = sheet.getDataRange().getValues();
-  var resultados = [];
-  for (var i = 1; i < dados.length; i++) {
-    var chapa = String(dados[i][0]);
-    var nome = String(dados[i][1]);
-    if (chapa === termo || nome.toLowerCase().includes(termo.toLowerCase())) {
-      resultados.push({ chapa: chapa, nome: nome, apelido: dados[i][2], funcao: dados[i][4] });
-    }
-  }
-  return resultados;
-}
-
-function buscarLinhas(termo) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Cadastro_Linhas");
-  if (!sheet) return [];
-  var dados = sheet.getDataRange().getValues();
-  var resultados = [];
-  for (var i = 1; i < dados.length; i++) {
-    var id = dados[i][0];
-    var descricao = String(dados[i][1] || '');
-    var numero = String(dados[i][2] || '');
-    var nucleo = dados[i][3] || '';
-    var cobrador = dados[i][4] || '';
-    var sabado = dados[i][5] || '';
-    var domingo = dados[i][6] || '';
-    var feriado = dados[i][7] || '';
-    
-    // Busca pelo número da linha (coluna C) ou descrição (coluna B)
-    if (descricao.toLowerCase().includes(termo.toLowerCase()) || numero.includes(termo)) {
-      resultados.push({ 
-        id: id, 
-        nome: descricao, 
-        numero: numero,
-        nucleo: nucleo,
-        cobrador: cobrador,
-        sabado: sabado,
-        domingo: domingo,
-        feriado: feriado,
-        sentido: '' // Pode ser preenchido se houver coluna específica
-      });
-    }
-  }
-  return resultados;
-}
-
-// ====================================================================
-// TRUNCAR TEXTO
-// ====================================================================
-function truncarTexto(texto, maxCaracteres = 1400, maxLinhas = 16) {
-  if (!texto) return '';
-  let textoFinal = texto;
-  let linhas = textoFinal.split(/\r?\n/);
-  if (linhas.length > maxLinhas) {
-    linhas = linhas.slice(0, maxLinhas);
-    textoFinal = linhas.join('\n');
-  }
-  if (textoFinal.length > maxCaracteres) {
-    textoFinal = textoFinal.substring(0, maxCaracteres);
-    const ultimoEspaco = textoFinal.lastIndexOf(' ');
-    if (ultimoEspaco > 0 && ultimoEspaco > maxCaracteres - 50) {
-      textoFinal = textoFinal.substring(0, ultimoEspaco);
-    }
-  }
-  return textoFinal;
-}
-
-// ====================================================================
-// SALVAR RASCUNHO DE ACIDENTE (com segurança contra linhas vazias)
-// ====================================================================
-function salvarRascunhoAcidente(dados) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
-  var sheetBens = ss.getSheetByName("BensAvariados");
-  var sheetPessoas = ss.getSheetByName("VitimasTestemunhas");
-  
-  // Garantir que as abas existam com cabeçalhos
-  if (!sheetOcorrencias) {
-    sheetOcorrencias = ss.insertSheet("Ocorrencias_acidentes");
-    sheetOcorrencias.appendRow(["ID", "Status", "DataCriacao", "DataAtualizacao", "FiscalCriador",
-                                "DataAcidente", "HoraAcidente", "Local", "DescricaoAnalise",
-                                "AnexosPrincipais", "Prefixo", "MotoristaChapa", "Finalizado"]);
-  }
-  if (!sheetBens) {
-    sheetBens = ss.insertSheet("BensAvariados");
-    sheetBens.appendRow(["ID_Acidente", "TipoBem", "Placa", "Ano", "Cor", "Modelo", "Renavan",
-                         "Proprietario", "Telefone", "Danos", "Anexos"]);
-  }
-  if (!sheetPessoas) {
-    sheetPessoas = ss.insertSheet("VitimasTestemunhas");
-    sheetPessoas.appendRow(["ID_Acidente", "Tipo", "Nome", "Documento", "Contato", "Observacoes"]);
-  }
-  
-  var id = dados.id;
-  var agora = Utilities.formatDate(new Date(), "America/Sao_Paulo", "dd/MM/yyyy HH:mm:ss");
-  var fiscal = dados.fiscal;
-  var status = dados.status || "EM_ANDAMENTO";
-  
-  // === Buscar linha existente (mais robusto) ===
-  var lastRow = sheetOcorrencias.getLastRow();
-  var linhaExistente = null;
-  if (lastRow > 1) {
-    var idsRange = sheetOcorrencias.getRange(2, 1, lastRow - 1, 1);
-    var ids = idsRange.getValues().map(function(row) { return String(row[0]); });
-    var index = ids.indexOf(String(id));
-    if (index !== -1) {
-      linhaExistente = index + 2; // +2 porque as linhas começam em 2 (1 é cabeçalho)
-    }
-  }
-  
-  var dataCriacao = linhaExistente ? sheetOcorrencias.getRange(linhaExistente, 3).getValue() : agora;
-  
-  var linhaDados = [
-    id, status, dataCriacao, agora, fiscal,
-    dados.dataAcidente || "", dados.horaAcidente || "", dados.local || "", truncarTexto(dados.descricaoAnalise || "", 1400, 16),
-    dados.anexosPrincipais || "", dados.prefixo || "", dados.motoristaChapa || "", dados.finalizado ? "SIM" : "NÃO"
   ];
-  
-  if (linhaExistente) {
-    sheetOcorrencias.getRange(linhaExistente, 1, 1, linhaDados.length).setValues([linhaDados]);
-  } else {
-    sheetOcorrencias.appendRow(linhaDados);
-  }
-  
-  // === Bens (remove antigos e insere novos) ===
-  if (sheetBens.getLastRow() > 1) {
-    var allBens = sheetBens.getDataRange().getValues();
-    for (var i = allBens.length - 1; i >= 1; i--) {
-      if (String(allBens[i][0]) === String(id)) {
-        sheetBens.deleteRow(i + 1);
-      }
-    }
-  }
-  if (dados.bens && dados.bens.length) {
-    dados.bens.forEach(function(bem) {
-      sheetBens.appendRow([id, bem.tipoBem, bem.placa, bem.ano, bem.cor, bem.modelo, bem.renavan,
-                           bem.proprietario, bem.telefone, truncarTexto(bem.danos, 500, 5), bem.anexos || ""]);
-    });
-  }
-  
-  // === Pessoas ===
-  if (sheetPessoas.getLastRow() > 1) {
-    var allPessoas = sheetPessoas.getDataRange().getValues();
-    for (var j = allPessoas.length - 1; j >= 1; j--) {
-      if (String(allPessoas[j][0]) === String(id)) {
-        sheetPessoas.deleteRow(j + 1);
-      }
-    }
-  }
-  if (dados.pessoas && dados.pessoas.length) {
-    dados.pessoas.forEach(function(pessoa) {
-      sheetPessoas.appendRow([id, pessoa.tipo, pessoa.nome, pessoa.documento, pessoa.contato, truncarTexto(pessoa.observacoes, 300, 5)]);
-    });
-  }
-  
-  return { success: true, id: id };
-}
-// ====================================================================
-// BUSCAR OCORRÊNCIAS INCOMPLETAS POR USUÁRIO
-// ====================================================================
-function buscarOcorrenciasIncompletas(apelido) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Ocorrencias_acidentes");
-  if (!sheet || sheet.getLastRow() <= 1) return [];
-  var dados = sheet.getDataRange().getValues();
-  
-  var cabecalhos = dados[0];
-  var idxId = cabecalhos.indexOf("ID");
-  var idxStatus = cabecalhos.indexOf("Status");
-  var idxFiscal = cabecalhos.indexOf("FiscalCriador");
-  var idxPrefixo = cabecalhos.indexOf("Prefixo");
-  var idxMotoristaChapa = cabecalhos.indexOf("MotoristaChapa");
-  var idxFinalizado = cabecalhos.indexOf("Finalizado");
-  var idxDataAtualizacao = cabecalhos.indexOf("DataAtualizacao");
-  
-  var resultados = [];
-  
-  for (var i=1; i<dados.length; i++) {
-    var linha = dados[i];
-    var fiscalLinha = linha[idxFiscal];
-    var finalizado = linha[idxFinalizado] === "SIM";
-    
-    // Apenas ocorrências não finalizadas do usuário
-    if (fiscalLinha !== apelido || finalizado) continue;
-    
-    resultados.push({
-      id: linha[idxId],
-      status: linha[idxStatus],
-      fiscal: fiscalLinha,
-      prefixo: linha[idxPrefixo] || "N/A",
-      motoristaChapa: linha[idxMotoristaChapa] || "",
-      dataAtualizacao: linha[idxDataAtualizacao] || ""
-    });
-  }
-  
-  // Ordenar por data de atualização (mais recente primeiro)
-  resultados.sort((a,b) => {
-    var da = a.dataAtualizacao || "";
-    var db = b.dataAtualizacao || "";
-    // Converter dd/MM/yyyy HH:mm:ss para comparação
-    var parseDate = function(d) {
-      if (!d) return "";
-      var partes = d.split(' ')[0].split('/');
-      if (partes.length === 3) {
-        return partes[2] + partes[1] + partes[0];
-      }
-      return d;
-    };
-    return parseDate(db).localeCompare(parseDate(da));
-  });
-  
-  return resultados;
-}
 
-// ====================================================================
-// CONSULTAR ACIDENTES
-// ====================================================================
-function consultarAcidentes(filtros, papel, apelido) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Ocorrencias_acidentes");
-  if (!sheet || sheet.getLastRow() <= 1) return [];
-  var dados = sheet.getDataRange().getValues();
-  
-  var cabecalhos = dados[0];
-  var idxId = cabecalhos.indexOf("ID");
-  var idxStatus = cabecalhos.indexOf("Status");
-  var idxFiscal = cabecalhos.indexOf("FiscalCriador");
-  var idxDataAcidente = cabecalhos.indexOf("DataAcidente");
-  var idxLocal = cabecalhos.indexOf("Local");
-  var idxPrefixo = cabecalhos.indexOf("Prefixo");
-  var idxMotoristaChapa = cabecalhos.indexOf("MotoristaChapa");
-  var idxFinalizado = cabecalhos.indexOf("Finalizado");
-  
-  var resultados = [];
-  
-  for (var i=1; i<dados.length; i++) {
-    var linha = dados[i];
-    var fiscalLinha = linha[idxFiscal];
-    var status = linha[idxStatus];
-    var finalizado = linha[idxFinalizado] === "SIM";
-    
-    if (filtros.prefixo && linha[idxPrefixo] !== filtros.prefixo) continue;
-    if (filtros.motorista && linha[idxMotoristaChapa] !== filtros.motorista) continue;
-    if (filtros.dataInicio || filtros.dataFim) {
-      var dataAcidenteStr = linha[idxDataAcidente];
-      if (dataAcidenteStr) {
-        var partes = dataAcidenteStr.split('/');
-        if (partes.length === 3) {
-          var dataRegistro = new Date(partes[2], partes[1]-1, partes[0]);
-          if (filtros.dataInicio && dataRegistro < filtros.dataInicio) continue;
-          if (filtros.dataFim && dataRegistro > filtros.dataFim) continue;
-        }
-      }
-    }
-    if (filtros.status && status !== filtros.status) continue;
-    
-    var permitido = false;
-    switch(papel) {
-      case 'ADMIN':
-      case 'SAF':
-      case 'ENCARREGADO':
-        permitido = true;
-        break;
-      default:
-        permitido = (fiscalLinha === apelido);
-    }
-    if (!permitido) continue;
-    
-    resultados.push({
-      id: linha[idxId],
-      status: status,
-      finalizado: finalizado,
-      fiscal: fiscalLinha,
-      dataAcidente: linha[idxDataAcidente],
-      local: linha[idxLocal],
-      prefixo: linha[idxPrefixo],
-      motorista: linha[idxMotoristaChapa]
-    });
-  }
-  
-  resultados.sort((a,b) => {
-    var da = a.dataAcidente.split('/').reverse().join('');
-    var db = b.dataAcidente.split('/').reverse().join('');
-    return db.localeCompare(da);
-  });
-  return resultados;
-}
-
-// ====================================================================
-// BUSCAR ACIDENTE POR ID
-// ====================================================================
-function buscarAcidentePorId(id) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetOcorrencias = ss.getSheetByName("Ocorrencias_acidentes");
-  var sheetBens = ss.getSheetByName("BensAvariados");
-  var sheetPessoas = ss.getSheetByName("VitimasTestemunhas");
-  
-  if (!sheetOcorrencias || sheetOcorrencias.getLastRow() <= 1) return null;
-  var ocorrencias = sheetOcorrencias.getDataRange().getValues();
-  var ocorrencia = null;
-  for (var i=1; i<ocorrencias.length; i++) {
-    if (ocorrencias[i][0] == id) {
-      ocorrencia = {
-        id: ocorrencias[i][0],
-        status: ocorrencias[i][1],
-        dataCriacao: ocorrencias[i][2],
-        dataAtualizacao: ocorrencias[i][3],
-        fiscal: ocorrencias[i][4],
-        dataAcidente: ocorrencias[i][5],
-        horaAcidente: ocorrencias[i][6],
-        local: ocorrencias[i][7],
-        descricaoAnalise: ocorrencias[i][8],
-        anexosPrincipais: ocorrencias[i][9],
-        prefixo: ocorrencias[i][10],
-        motoristaChapa: ocorrencias[i][11],
-        finalizado: ocorrencias[i][12] === "SIM"
-      };
-      break;
-    }
-  }
-  if (!ocorrencia) return null;
-  
-  // Bens
-  var bens = [];
-  if (sheetBens && sheetBens.getLastRow() > 1) {
-    var bensData = sheetBens.getDataRange().getValues();
-    for (var j=1; j<bensData.length; j++) {
-      if (bensData[j][0] == id) {
-        bens.push({
-          tipoBem: bensData[j][1], placa: bensData[j][2], ano: bensData[j][3],
-          cor: bensData[j][4], modelo: bensData[j][5], renavan: bensData[j][6],
-          proprietario: bensData[j][7], telefone: bensData[j][8], danos: bensData[j][9],
-          anexos: bensData[j][10]
-        });
-      }
-    }
-  }
-  ocorrencia.bens = bens;
-  
-  // Pessoas
-  var pessoas = [];
-  if (sheetPessoas && sheetPessoas.getLastRow() > 1) {
-    var pessoasData = sheetPessoas.getDataRange().getValues();
-    for (var k=1; k<pessoasData.length; k++) {
-      if (pessoasData[k][0] == id) {
-        pessoas.push({
-          tipo: pessoasData[k][1], nome: pessoasData[k][2], documento: pessoasData[k][3],
-          contato: pessoasData[k][4], observacoes: pessoasData[k][5]
-        });
-      }
-    }
-  }
-  ocorrencia.pessoas = pessoas;
-  return ocorrencia;
-}
-
-// ====================================================================
-// UPLOAD DE ANEXOS (opcional)
-// ====================================================================
-function uploadAnexos(base64Array, idAcidente, prefixo) {
-  var pasta = DriveApp.getFolderById(ID_PASTA_ANEXOS_ACIDENTES);
-  var links = [];
-  for (var i=0; i<base64Array.length; i++) {
-    try {
-      var anexo = base64Array[i];
-      var dadosDecodificados = Utilities.base64Decode(anexo.base64);
-      var sufixo = Utilities.formatDate(new Date(), "America/Sao_Paulo", "ddMMyyyy_HHmmss") + "_" + idAcidente + "_" + i;
-      var extensao = anexo.mimeType.includes("pdf") ? ".pdf" : ".jpg";
-      var nomeArquivo = (prefixo ? "Acidente_" + prefixo + "_" : "Acidente_") + sufixo + extensao;
-      var blob = Utilities.newBlob(dadosDecodificados, anexo.mimeType, nomeArquivo);
-      var arquivoDrive = pasta.createFile(blob);
-      arquivoDrive.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      links.push(arquivoDrive.getUrl());
-    } catch (err) {
-      links.push("ERRO: " + err.message);
-    }
-  }
-  return links;
-}
-
-// ====================================================================
-// doPost
-// ====================================================================
-function doPost(e) {
-  try {
-    var { nome, acao, dados } = e.parameter;
-    
-    if (acao === "Login bem-sucedido" || (!dados && nome)) {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      let logSheet = ss.getSheetByName("Log_Acessos");
-      if (!logSheet) {
-        logSheet = ss.insertSheet("Log_Acessos");
-        logSheet.appendRow(["Data e Hora", "Apelido", "Nome Completo", "Cargo/Função", "Ação"]);
-      }
-      const sheetLogin = ss.getSheetByName("login");
-      const data = sheetLogin.getDataRange().getValues();
-      let nomeCompleto = "Não encontrado";
-      let cargo = "Não informado";
-      for (let i = 1; i < data.length; i++) {
-        if (data[i][2] === nome) {
-          nomeCompleto = data[i][1] || nome;
-          cargo = data[i][4] || "";
-          break;
-        }
-      }
-      const dataHora = Utilities.formatDate(new Date(), "America/Sao_Paulo", "dd/MM/yyyy HH:mm:ss");
-      logSheet.appendRow([dataHora, nome, nomeCompleto, cargo, acao]);
-      return ContentService.createTextOutput("Log registrado com sucesso").setMimeType(ContentService.MimeType.TEXT);
-    }
-    
-    if (acao === "salvar_rascunho_acidente" && dados) {
-      var dadosObj = JSON.parse(dados);
-      var result = salvarRascunhoAcidente(dadosObj);
-      return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    if (acao === "finalizar_acidente" && dados) {
-      var dadosObj = JSON.parse(dados);
-      var result = finalizarAcidente(dadosObj.id);
-      return ContentService.createTextOutput(JSON.stringify({success: result})).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    return ContentService.createTextOutput("Ação desconhecida").setMimeType(ContentService.MimeType.TEXT);
-  } catch (err) {
-    return ContentService.createTextOutput("Erro: " + err.message).setMimeType(ContentService.MimeType.TEXT);
-  }
-}
-
-// ====================================================================
-// doGet
-// ====================================================================
-function doGet(e) {
-  var acao = e.parameter.acao;
-  var callback = e.parameter.callback;
-  
-  function enviarResposta(dados) {
-    if (callback) {
-      var json = JSON.stringify(dados);
-      var resposta = callback + '(' + json + ');';
-      return ContentService.createTextOutput(resposta).setMimeType(ContentService.MimeType.JAVASCRIPT);
+  abasConfig.forEach(function(config) {
+    var sheet = SS.getSheetByName(config.nome);
+    if (!sheet) {
+      sheet = SS.insertSheet(config.nome);
+      // Adiciona cabeçalhos
+      sheet.getRange(1, 1, 1, config.colunas.length).setValues([config.colunas]);
+      sheet.getRange(1, 1, 1, config.colunas.length).setFontWeight('bold').setBackground('#f3f3f3');
+      Logger.log('Aba criada: ' + config.nome);
     } else {
-      return ContentService.createTextOutput(JSON.stringify(dados)).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-  
-  function enviarErro(mensagem) {
-    var erroObj = { erro: mensagem };
-    if (callback) {
-      var json = JSON.stringify(erroObj);
-      var resposta = callback + '(' + json + ');';
-      return ContentService.createTextOutput(resposta).setMimeType(ContentService.MimeType.JAVASCRIPT);
-    } else {
-      return ContentService.createTextOutput(JSON.stringify(erroObj)).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-  
-  try {
-    if (acao === "terminais") return enviarResposta(listarTerminais());
-    if (acao === "terminais_todos") return enviarResposta(listarTodosTerminais());
-    
-    if (acao === "login") {
-      var senhaDigitada = e.parameter.senha;
-      var chapaDigitada = e.parameter.chapa;
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var sheetLogin = ss.getSheetByName("login");
-      var data = sheetLogin.getDataRange().getValues();
-      var usuarioEncontrado = { sucesso: false };
-      for (var i = 1; i < data.length; i++) {
-        var matricula = data[i][0];
-        var nome = data[i][1];
-        var apelido = data[i][2];
-        var funcao = data[i][4];
-        var ativo = data[i][5];
-        var hashPlanilha = data[i][6];
-        if (matricula && String(matricula) === String(chapaDigitada) && ativo === "SIM") {
-          var hashCalculado = gerarHashComSalt(senhaDigitada, apelido);
-          if (hashCalculado === hashPlanilha) {
-            usuarioEncontrado = { sucesso: true, nome: nome, apelido: apelido, funcao: funcao, chapa: matricula };
+      // Verifica se os cabeçalhos estão corretos
+      var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      var needsUpdate = false;
+      
+      // Se o número de colunas for diferente ou o primeiro cabeçalho não bater
+      if (headerRow.length !== config.colunas.length || headerRow[0] !== config.colunas[0]) {
+        needsUpdate = true;
+      } else {
+        // Verifica coluna por coluna
+        for (var i = 0; i < config.colunas.length; i++) {
+          if (headerRow[i] !== config.colunas[i]) {
+            needsUpdate = true;
             break;
           }
         }
       }
-      return enviarResposta(usuarioEncontrado);
+
+      if (needsUpdate) {
+        // Atualiza cabeçalhos (cuidado para não apagar dados existentes se possível, mas aqui vamos forçar o padrão)
+        // Expandir se necessário
+        if (sheet.getLastColumn() < config.colunas.length) {
+          sheet.getRange(1, sheet.getLastColumn() + 1, 1, config.colunas.length - sheet.getLastColumn()).setValues([config.colunas.slice(sheet.getLastColumn())]);
+        }
+        // Sobrescrever os existentes para garantir ortografia correta
+        sheet.getRange(1, 1, 1, config.colunas.length).setValues([config.colunas]);
+        sheet.getRange(1, 1, 1, config.colunas.length).setFontWeight('bold').setBackground('#f3f3f3');
+        Logger.log('Aba corrigida: ' + config.nome);
+      }
     }
     
-    if (acao === "consultar_acidentes") {
-      var filtros = {
-        prefixo: e.parameter.prefixo || null,
-        motorista: e.parameter.motorista || null,
-        dataInicio: e.parameter.dataInicio ? new Date(e.parameter.dataInicio) : null,
-        dataFim: e.parameter.dataFim ? new Date(e.parameter.dataFim) : null,
-        status: e.parameter.status || null
-      };
-      var papel = e.parameter.papel || '';
-      var apelido = e.parameter.apelido || '';
-      var resultado = consultarAcidentes(filtros, papel, apelido);
-      return enviarResposta(resultado);
+    // Ajuste de largura básica
+    if(sheet) {
+      sheet.setFrozenRows(1);
+      sheet.autoResizeColumns(1, sheet.getLastColumn());
+    }
+  });
+  
+  SpreadsheetApp.getUi().alert('Estrutura das abas verificada e atualizada com sucesso!');
+}
+
+/**
+ * FUNÇÕES DE API (DO POST AO GET)
+ */
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+  
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action;
+    
+    if (action === 'login') {
+      return handleLogin(data);
+    } else if (action === 'salvarOcorrencia') {
+      return handleSalvarOcorrencia(data);
+    } else if (action === 'buscarVeiculo') {
+      return handleBuscarVeiculo(data.prefixo);
+    } else if (action === 'buscarMotorista') {
+      return handleBuscarMotorista(data.chapa);
+    } else if (action === 'buscarLinha') {
+      return handleBuscarLinha(data.id); // ou numero, dependendo da busca
+    } else if (action === 'logAcesso') {
+      return handleLogAcesso(data);
     }
     
-    if (acao === "obter_acidente") {
-      var id = e.parameter.id;
-      var acidente = buscarAcidentePorId(id);
-      return enviarResposta(acidente);
-    }
+    return responseJSON({ success: false, message: 'Ação desconhecida' });
     
-    if (acao === "buscar_veiculo") {
-      var prefixo = e.parameter.prefixo;
-      var veiculo = buscarVeiculoPorPrefixo(prefixo);
-      return enviarResposta(veiculo);
-    }
-    
-    if (acao === "buscar_operador") {
-      var termo = e.parameter.termo;
-      var operadores = buscarOperadorPorChapaOuNome(termo);
-      return enviarResposta(operadores);
-    }
-    
-    if (acao === "buscar_linhas") {
-      var termoLinha = e.parameter.termo;
-      var linhas = buscarLinhas(termoLinha);
-      return enviarResposta(linhas);
-    }
-    
-    if (acao === "buscar_ocorrencias_incompletas") {
-      var apelidoUsuario = e.parameter.apelido || '';
-      var ocorrencias = buscarOcorrenciasIncompletas(apelidoUsuario);
-      return enviarResposta(ocorrencias);
-    }
-    
-    return enviarErro("Ação inválida: " + acao);
-  } catch (err) {
-    Logger.log("ERRO em doGet: " + err.message);
-    return enviarErro("Erro interno: " + err.message);
+  } catch (error) {
+    return responseJSON({ success: false, message: 'Erro no servidor: ' + error.toString() });
+  } finally {
+    lock.releaseLock();
   }
+}
+
+function handleLogin(data) {
+  var sheet = SS.getSheetByName('Login');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Login não encontrada' });
+  
+  var rows = sheet.getDataRange().getValues();
+  var userFound = null;
+  
+  // Pula cabeçalho
+  for (var i = 1; i < rows.length; i++) {
+    var row = rows[i];
+    // Colunas: 0:matricula, 1:nome, 2:apelido, 3:senha, 4:funcao, 5:ativo, 6:senha_hash
+    var matricula = String(row[0]).trim();
+    var ativo = String(row[5]).trim().toLowerCase();
+    var senhaHash = String(row[6]).trim();
+    
+    if (matricula === String(data.matricula).trim()) {
+      if (ativo !== 'sim' && ativo !== 'true') {
+        return responseJSON({ success: false, message: 'Usuário inativo.' });
+      }
+      
+      // Validação simples de senha (ou hash se o frontend enviar hash)
+      // Assumindo que o frontend envia a senha crua e comparamos com a coluna senha (3) ou hash (6)
+      // Ajuste conforme sua lógica de segurança real
+      if (String(row[3]) === data.senha || senhaHash === data.senhaHash) {
+        userFound = {
+          matricula: row[0],
+          nome: row[1],
+          apelido: row[2],
+          funcao: row[4]
+        };
+        break;
+      } else {
+        return responseJSON({ success: false, message: 'Senha incorreta.' });
+      }
+    }
+  }
+  
+  if (userFound) {
+    return responseJSON({ success: true, user: userFound });
+  } else {
+    return responseJSON({ success: false, message: 'Usuário não encontrado.' });
+  }
+}
+
+function handleSalvarOcorrencia(data) {
+  try {
+    var idAcidente = data.id || Utilities.getUuid();
+    var now = new Date();
+    
+    // 1. Salvar na aba Ocorrencia_acidentes (Cabeçalho + Análise)
+    var sheetOcorrencia = SS.getSheetByName('Ocorrencia_acidentes');
+    if (!sheetOcorrencia) throw new Error('Aba Ocorrencia_acidentes não existe');
+    
+    // Dados principais e de análise
+    var rowDataOcorrencia = [
+      idAcidente,
+      data.status || 'Em Aberto',
+      now, // DataCriacao
+      now, // DataAtualizacao
+      data.fiscalCriador,
+      data.dataAcidente,
+      data.horaAcidente,
+      data.local,
+      data.descricaoAnalise || '', // Campo de análise de texto
+      JSON.stringify(data.anexosPrincipais || []), // Array de fotos da análise
+      data.prefixo,
+      data.motoristaChapa,
+      data.finalizado || false
+    ];
+    
+    sheetOcorrencia.appendRow(rowDataOcorrencia);
+    
+    // 2. Salvar Bens Avariados
+    if (data.bensAvariados && data.bensAvariados.length > 0) {
+      var sheetBens = SS.getSheetByName('BensAvariados');
+      if (!sheetBens) throw new Error('Aba BensAvariados não existe');
+      
+      data.bensAvariados.forEach(function(bem) {
+        sheetBens.appendRow([
+          idAcidente,
+          bem.tipoBem,
+          bem.placa,
+          bem.ano,
+          bem.cor,
+          bem.modelo,
+          bem.renavam,
+          bem.proprietario,
+          bem.telefone,
+          bem.danos,
+          JSON.stringify(bem.anexos || [])
+        ]);
+      });
+    }
+    
+    // 3. Salvar Vítimas
+    if (data.vitimas && data.vitimas.length > 0) {
+      var sheetVitimas = SS.getSheetByName('Vitimas');
+      if (!sheetVitimas) throw new Error('Aba Vitimas não existe');
+      
+      data.vitimas.forEach(function(vitima) {
+        sheetVitimas.appendRow([
+          idAcidente,
+          vitima.nome,
+          vitima.documento,
+          vitima.contato,
+          vitima.lesoes,
+          vitima.atendimento,
+          JSON.stringify(vitima.fotos || [])
+        ]);
+      });
+    }
+    
+    // 4. Salvar Testemunhas
+    if (data.testemunhas && data.testemunhas.length > 0) {
+      var sheetTestemunhas = SS.getSheetByName('Testemunhas');
+      if (!sheetTestemunhas) throw new Error('Aba Testemunhas não existe');
+      
+      data.testemunhas.forEach(function(test) {
+        sheetTestemunhas.appendRow([
+          idAcidente,
+          test.nome,
+          test.documento,
+          test.contato,
+          test.relato
+        ]);
+      });
+    }
+    
+    return responseJSON({ success: true, id: idAcidente, message: 'Ocorrência salva com sucesso!' });
+    
+  } catch (e) {
+    return responseJSON({ success: false, message: 'Erro ao salvar: ' + e.toString() });
+  }
+}
+
+function handleBuscarVeiculo(prefixo) {
+  var sheet = SS.getSheetByName('Cadastro_Veiculos');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Veículos não encontrada' });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  for (var i = 1; i < data.length; i++) {
+    // PREFIXO é a coluna 0
+    if (String(data[i][0]).trim() === String(prefixo).trim()) {
+      var veiculo = {};
+      headers.forEach(function(h, index) {
+        veiculo[h] = data[i][index];
+      });
+      return responseJSON({ success: true, data: veiculo });
+    }
+  }
+  
+  return responseJSON({ success: false, message: 'Veículo não encontrado' });
+}
+
+function handleBuscarMotorista(chapa) {
+  var sheet = SS.getSheetByName('Cadastro_Operadores');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Operadores não encontrada' });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  for (var i = 1; i < data.length; i++) {
+    // Chapa é a coluna 0
+    if (String(data[i][0]).trim() === String(chapa).trim()) {
+      var operador = {};
+      headers.forEach(function(h, index) {
+        operador[h] = data[i][index];
+      });
+      return responseJSON({ success: true, data: operador });
+    }
+  }
+  
+  return responseJSON({ success: false, message: 'Motorista não encontrado' });
+}
+
+function handleBuscarLinha(idOuNumero) {
+  var sheet = SS.getSheetByName('Cadastro_Linhas');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Linhas não encontrada' });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  
+  for (var i = 1; i < data.length; i++) {
+    // Busca por ID (coluna 0) ou Número (coluna 2)
+    if (String(data[i][0]).trim() === String(idOuNumero).trim() || 
+        String(data[i][2]).trim() === String(idOuNumero).trim()) {
+      var linha = {};
+      headers.forEach(function(h, index) {
+        linha[h] = data[i][index];
+      });
+      return responseJSON({ success: true, data: linha });
+    }
+  }
+  
+  return responseJSON({ success: false, message: 'Linha não encontrada' });
+}
+
+function handleLogAcesso(data) {
+  var sheet = SS.getSheetByName('Log Acessos');
+  if (!sheet) {
+    // Tenta criar se não existir (fallback)
+    verificarEstruturaAbas();
+    sheet = SS.getSheetByName('Log Acessos');
+  }
+  
+  sheet.appendRow([
+    new Date(),
+    data.matricula,
+    data.nome,
+    data.ip || 'N/A',
+    data.status,
+    data.dispositivo || 'Web/App'
+  ]);
+  
+  return responseJSON({ success: true });
+}
+
+function doGet(e) {
+  // Para testes de conexão ou CORS preflight
+  return responseJSON({ status: 'OK', message: 'API de Acidentes Online' });
+}
+
+function responseJSON(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function limparDadosTeste() {
+  // Função utilitária para limpar dados exceto cabeçalhos
+  var abasParaLimpar = ['Ocorrencia_acidentes', 'BensAvariados', 'Vitimas', 'Testemunhas', 'Log Acessos'];
+  
+  abasParaLimpar.forEach(function(nome) {
+    var sheet = SS.getSheetByName(nome);
+    if (sheet && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+    }
+  });
+  
+  SpreadsheetApp.getUi().alert('Dados de teste limpos!');
 }
