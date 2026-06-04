@@ -722,12 +722,15 @@ function carregarDadosInspetor() {
 // ====================================================================
 // ANEXOS - FOTOS
 // ====================================================================
-async function anexarFotosColetivo() {
+async function anexarFotosColetivo(allowBoth = true) {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Removido capture para permitir escolha entre câmera e galeria
+  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
+  if (!allowBoth) {
+    input.capture = 'environment';
+  }
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosColetivoArray.length + files.length > 6) {
@@ -747,12 +750,15 @@ async function anexarFotosColetivo() {
   input.click();
 }
 
-async function anexarFotosLocal() {
+async function anexarFotosLocal(allowBoth = true) {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Removido capture para permitir escolha entre câmera e galeria
+  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
+  if (!allowBoth) {
+    input.capture = 'environment';
+  }
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosLocalArray.length + files.length > 6) {
@@ -772,12 +778,15 @@ async function anexarFotosLocal() {
   input.click();
 }
 
-async function anexarFotosVeiculo(index) {
+async function anexarFotosVeiculo(index, allowBoth = true) {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Removido capture para permitir escolha entre câmera e galeria
+  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
+  if (!allowBoth) {
+    input.capture = 'environment';
+  }
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!bensArray[index].fotos) bensArray[index].fotos = [];
@@ -798,12 +807,15 @@ async function anexarFotosVeiculo(index) {
   input.click();
 }
 
-async function anexarFotosVitima(index) {
+async function anexarFotosVitima(index, allowBoth = true) {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Removido capture para permitir escolha entre câmera e galeria
+  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
+  if (!allowBoth) {
+    input.capture = 'environment';
+  }
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!vitimasArray[index].fotos) vitimasArray[index].fotos = [];
