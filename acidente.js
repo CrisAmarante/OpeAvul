@@ -1115,14 +1115,18 @@ function iniciarReconhecimentoFala() {
 
 async function gravarHistorico() {
   // Verifica condições para modo demonstração
-  const chapa = getEl('motorista-chapa')?.value || '';
-  const tipoAcidente = getEl('tipo-acidente')?.value || '';
-  const logradouro = getEl('logradouro-acidente')?.value || '';
-  const prefixo = getEl('onibus-prefixo')?.value || '';
+  const chapa = getEl('cadastro-chapa')?.value || '';
+  
+  // Tipo de acidente - radio buttons usam name, precisamos pegar o checked
+  const tipoAcidenteEl = document.querySelector('input[name="tipo-acidente"]:checked');
+  const tipoAcidente = tipoAcidenteEl ? tipoAcidenteEl.value : '';
+  
+  const logradouro = getEl('cadastro-logradouro')?.value || '';
+  const prefixo = getEl('cadastro-prefixo')?.value || '';
   
   const isDemoUser = chapa === '55555';
   const demoConditionsMet = isDemoUser && 
-                           tipoAcidente === 'Colisão com vítimas' && 
+                           tipoAcidente === 'colisao_com_vitimas' && 
                            logradouro.toLowerCase().includes('av. hum, 1345') && 
                            prefixo === '210';
 
