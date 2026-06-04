@@ -46,8 +46,22 @@ function carregarTerminais(forceRefresh = false) {
       terminaisPromise = null;
       terminaisCache = ['Terminal A', 'Terminal B', 'Terminal C', 'Terminal D'];
       terminaisTimestamp = Date.now();
+      console.warn('Falha ao carregar terminais, usando fallback');
       resolve(terminaisCache);
     };
+    // Timeout para evitar bloqueio
+    const timeoutId = setTimeout(() => {
+      if (document.body.contains(script)) {
+        delete window[callbackName];
+        terminaisPromise = null;
+        terminaisCache = ['Terminal A', 'Terminal B', 'Terminal C', 'Terminal D'];
+        terminaisTimestamp = Date.now();
+        document.body.removeChild(script);
+        console.warn('Timeout ao carregar terminais, usando fallback');
+        resolve(terminaisCache);
+      }
+    }, 5000);
+    script.onload = () => clearTimeout(timeoutId);
     document.body.appendChild(script);
   });
   return terminaisPromise;
@@ -63,6 +77,7 @@ function carregarTodosTerminais(forceRefresh = false) {
   todosTerminaisPromise = new Promise((resolve) => {
     const callbackName = 'carregarTodosTerminaisCallback_' + Date.now();
     window[callbackName] = function(terminais) {
+      if (timeoutId) clearTimeout(timeoutId);
       todosTerminaisCache = terminais;
       delete window[callbackName];
       todosTerminaisPromise = null;
@@ -74,8 +89,21 @@ function carregarTodosTerminais(forceRefresh = false) {
       delete window[callbackName];
       todosTerminaisPromise = null;
       todosTerminaisCache = ['Terminal A', 'Terminal B', 'Terminal C', 'Terminal D'];
+      console.warn('Falha ao carregar terminais, usando fallback');
       resolve(todosTerminaisCache);
     };
+    // Timeout para evitar bloqueio
+    const timeoutId = setTimeout(() => {
+      if (document.body.contains(script)) {
+        delete window[callbackName];
+        todosTerminaisPromise = null;
+        todosTerminaisCache = ['Terminal A', 'Terminal B', 'Terminal C', 'Terminal D'];
+        document.body.removeChild(script);
+        console.warn('Timeout ao carregar terminais, usando fallback');
+        resolve(todosTerminaisCache);
+      }
+    }, 5000);
+    script.onload = () => { if (timeoutId) clearTimeout(timeoutId); };
     document.body.appendChild(script);
   });
   return todosTerminaisPromise;
