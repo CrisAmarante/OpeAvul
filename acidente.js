@@ -1211,6 +1211,11 @@ function iniciarAutoComplete() {
   const datalistVeiculos = getEl('lista-veiculos');
   const datalistMotoristas = getEl('lista-motoristas');
   
+  // Adiciona opção de demonstração para o prefixo 210
+  if (datalistVeiculos) {
+    datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
+  }
+  
   if (prefixoInput && datalistVeiculos) {
     prefixoInput.addEventListener('input', debounce(async function() {
       const termo = this.value;
@@ -1222,9 +1227,12 @@ function iniciarAutoComplete() {
         if (veiculo && veiculo.prefixo) {
           datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
         } else {
-          datalistVeiculos.innerHTML = '';
+          datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
         }
-      } catch(e) { console.warn(e); }
+      } catch(e) { 
+        console.warn(e);
+        datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
+      }
     }, 500));
   }
   
@@ -1254,12 +1262,20 @@ async function carregarListaLinhas() {
   if (!selectLinha) return;
   
   try {
+    // Para o modo de demonstração, adiciona a linha 033 manualmente
+    // Limpa opções existentes (mantém a primeira vazia)
+    selectLinha.innerHTML = '<option value="">Selecione...</option>';
+    
+    // Adiciona linha de demonstração 033
+    const optionDemo = document.createElement('option');
+    optionDemo.value = '033';
+    optionDemo.textContent = '033 - Sta. Antônio (Demo)';
+    selectLinha.appendChild(optionDemo);
+    
+    // Tenta carregar demais linhas da API
     const url = `${URL_PLANILHA}?acao=buscar_linhas&termo=`;
     const resp = await fetch(url);
     const linhas = await resp.json();
-    
-    // Limpa opções existentes (mantém a primeira vazia)
-    selectLinha.innerHTML = '<option value="">Selecione...</option>';
     
     if (linhas && linhas.length > 0) {
       // Ordena por número da linha
@@ -1269,12 +1285,14 @@ async function carregarListaLinhas() {
         return numA - numB;
       });
       
-      // Adiciona todas as linhas ao select
+      // Adiciona todas as linhas ao select (exceto a 033 que já foi adicionada)
       linhas.forEach(linha => {
-        const option = document.createElement('option');
-        option.value = linha.numero;
-        option.textContent = `${linha.numero} - ${linha.nome || ''}`;
-        selectLinha.appendChild(option);
+        if (linha.numero !== '033') {
+          const option = document.createElement('option');
+          option.value = linha.numero;
+          option.textContent = `${linha.numero} - ${linha.nome || ''}`;
+          selectLinha.appendChild(option);
+        }
       });
     }
   } catch (e) {

@@ -190,6 +190,37 @@ async function login(e) {
   const errorMsg = document.getElementById('login-error');
   const btnSubmit = e.target.querySelector('button[type="submit"]');
   
+  // Usuário de teste/demo 55555 - login automático sem validação backend
+  if (chapa === '55555') {
+    btnSubmit.innerHTML = 'Entrando...';
+    btnSubmit.disabled = true;
+    
+    setTimeout(() => {
+      localStorage.setItem('inspectorLoggedIn', 'true');
+      localStorage.setItem('inspectorName', 'Usuário Teste');
+      localStorage.setItem('inspectorApelido', 'Demo');
+      localStorage.setItem('inspectorRole', 'Inspetor');
+      localStorage.setItem('inspectorChapa', '55555');
+      window.currentUserRole = 'Inspetor';
+      
+      registrarLog('Demo');
+      window.modals.login.close();
+      checkLoginStatus();
+      
+      btnSubmit.innerHTML = 'Entrar';
+      btnSubmit.disabled = false;
+      
+      // Ativa modo de demonstração após login
+      setTimeout(() => {
+        if (window.ativarModoDemonstracao) {
+          window.ativarModoDemonstracao();
+        }
+      }, 1000);
+    }, 500);
+    
+    return;
+  }
+  
   if (!chapa || !senha) {
     errorMsg.textContent = 'Digite chapa e senha!';
     errorMsg.style.display = 'block';
