@@ -738,30 +738,18 @@ async function buscarDadosLinha() {
 // BUSCAR DADOS DO VEÍCULO
 // ====================================================================
 async function buscarDadosVeiculo() {
-  // Esta função agora é apenas para compatibilidade
-  // O preenchimento automático é feito pelo evento 'input' em iniciarAutoComplete()
-  const prefixo = getEl('cadastro-prefixo')?.value || '';
-  const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
-  
-  // Para usuário de teste com prefixo 210, usa dados fixos
-  if (isTestUser && prefixo === '210') {
-    preencherDadosVeiculoTeste();
-  }
+  // Esta função foi desativada para evitar interferências
+  // O preenchimento automático é feito exclusivamente em iniciarAutoComplete()
+  console.log('[DEBUG] buscarDadosVeiculo chamada - função desativada');
 }
 
 // ====================================================================
 // BUSCAR DADOS DO MOTORISTA
 // ====================================================================
 async function buscarDadosMotorista() {
-  // Esta função agora é apenas para compatibilidade
-  // O preenchimento automático é feito pelo evento 'input' em iniciarAutoComplete()
-  const chapa = getEl('cadastro-chapa')?.value || '';
-  const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
-  
-  // Para usuário de teste com chapa 98765, usa dados fixos
-  if (isTestUser && chapa === '98765') {
-    preencherDadosMotoristaTeste();
-  }
+  // Esta função foi desativada para evitar interferências
+  // O preenchimento automático é feito exclusivamente em iniciarAutoComplete()
+  console.log('[DEBUG] buscarDadosMotorista chamada - função desativada');
 }
 
 // ====================================================================
@@ -1378,91 +1366,92 @@ async function gravarParecer() {
 function iniciarAutoComplete() {
   const prefixoInput = getEl('cadastro-prefixo');
   const motoristaInput = getEl('cadastro-chapa');
+  const logradouroInput = getEl('analise-logradouro');
   const datalistVeiculos = getEl('lista-veiculos');
   const datalistMotoristas = getEl('lista-motoristas');
   
-  // Verifica se é usuário de teste (chapa 55555)
+  // Verifica se é usuário de teste (chapa 55555) - ISOLAMENTO TOTAL
   const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
   
-  // Adiciona opção de demonstração para o prefixo 210
-  if (datalistVeiculos) {
-    datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
-  }
-  
-  if (prefixoInput && datalistVeiculos) {
-    // Para usuário de teste, usar evento direto sem debounce
-    if (isTestUser) {
+  // ====================================================================
+  // MODO DE DEMONSTRAÇÃO (USUÁRIO 55555) - DADOS FIXOS
+  // ====================================================================
+  if (isTestUser) {
+    // Configura opções fixas para demonstração
+    if (datalistVeiculos) {
+      datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
+    }
+    if (datalistMotoristas) {
+      datalistMotoristas.innerHTML = '<option value="98765">João da Silva Teste (Motorista Teste)</option>';
+    }
+    
+    // Evento para veículo (apenas 210)
+    if (prefixoInput) {
       prefixoInput.addEventListener('input', function() {
-        const termo = this.value;
-        // Ativa preenchimento automático imediatamente quando digitar 210
-        if (termo === '210') {
-          preencherDadosVeiculoTeste();
-        }
-      });
-      
-      // Também adiciona evento de blur para garantir preenchimento
-      prefixoInput.addEventListener('blur', function() {
         if (this.value === '210') {
           preencherDadosVeiculoTeste();
         }
       });
-    } else {
-      // Para outros usuários, usa debounce normal
-      prefixoInput.addEventListener('input', debounce(async function() {
-        const termo = this.value;
-        if (termo.length < 2) return;
-        
-        const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(termo)}`;
-        try {
-          const resp = await fetch(url);
-          const veiculo = await resp.json();
-          if (veiculo && veiculo.prefixo) {
-            datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
-            sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
-          }
-        } catch(e) { 
-          console.warn(e);
-        }
-      }, 500));
     }
-  }
-  
-  if (motoristaInput && datalistMotoristas) {
-    // Para usuário de teste, usar evento direto sem debounce
-    if (isTestUser) {
+    
+    // Evento para motorista (apenas 98765)
+    if (motoristaInput) {
       motoristaInput.addEventListener('input', function() {
-        const termo = this.value;
-        // Ativa preenchimento automático imediatamente quando digitar 98765
-        if (termo === '98765') {
-          preencherDadosMotoristaTeste();
-        }
-      });
-      
-      // Também adiciona evento de blur para garantir preenchimento
-      motoristaInput.addEventListener('blur', function() {
         if (this.value === '98765') {
           preencherDadosMotoristaTeste();
         }
       });
-    } else {
-      // Para outros usuários, usa debounce normal
-      motoristaInput.addEventListener('input', debounce(async function() {
-        const termo = this.value;
-        if (termo.length < 2) return;
-        
-        const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(termo)}`;
-        try {
-          const resp = await fetch(url);
-          const operadores = await resp.json();
-          if (operadores && operadores.length) {
-            datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
-            if (operadores[0]) {
-              sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
-            }
-          }
-        } catch(e) { console.warn(e); }
-      }, 500));
     }
+    
+    console.log('[MODO DEMO] Autocomplete configurado para usuário 55555');
+    return; // Sai da função - não executa código de produção
+  }
+  
+  // ====================================================================
+  // MODO PRODUÇÃO (OUTROS USUÁRIOS) - API REAL
+  // ====================================================================
+  console.log('[MODO PRODUÇÃO] Autocomplete configurado para usuário comum');
+  
+  // Configura autocomplete de veículos via API
+  if (prefixoInput && datalistVeiculos) {
+    prefixoInput.addEventListener('input', debounce(async function() {
+      const termo = this.value;
+      if (termo.length < 2) return;
+      
+      const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(termo)}`;
+      try {
+        const resp = await fetch(url);
+        const veiculo = await resp.json();
+        if (veiculo && veiculo.prefixo) {
+          datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
+          sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
+        }
+      } catch(e) { 
+        console.warn('Erro ao buscar veículo:', e);
+      }
+    }, 500));
+  }
+  
+  // Configura autocomplete de motoristas via API
+  if (motoristaInput && datalistMotoristas) {
+    motoristaInput.addEventListener('input', debounce(async function() {
+      const termo = this.value;
+      if (termo.length < 2) return;
+      
+      const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(termo)}`;
+      try {
+        const resp = await fetch(url);
+        const operadores = await resp.json();
+        if (operadores && operadores.length) {
+          datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
+          if (operadores[0]) {
+            sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
+          }
+        }
+      } catch(e) { 
+        console.warn('Erro ao buscar operador:', e);
+      }
+    }, 500));
   }
 }
 
