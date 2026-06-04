@@ -58,7 +58,9 @@ async function verificarOcorrenciasIncompletas() {
   try {
     // Buscar ocorrências incompletas no backend
     const url = `${URL_PLANILHA}?acao=buscar_ocorrencias_incompletas&apelido=${encodeURIComponent(currentUser)}`;
-    const response = await fetch(url);
+    console.log('[Ocorrências Incompletas] Buscando:', url);
+    const response = await fetch(url, { timeout: 5000 });
+    console.log('[Ocorrências Incompletas] Resposta recebida, status:', response.status);
     const ocorrenciasBackend = await response.json();
     
     // Também buscar rascunhos locais (para casos offline ou não sincronizados)
@@ -94,7 +96,7 @@ async function verificarOcorrenciasIncompletas() {
       mostrarModalOcorrenciasIncompletas(todasOcorrencias);
     }
   } catch (e) {
-    console.error('Erro ao verificar ocorrências incompletas:', e);
+    console.error('[Ocorrências Incompletas ERRO]', e);
     // Fallback para busca local em caso de erro
     fallbackVerificacaoLocal(currentUser);
   }
@@ -268,13 +270,17 @@ async function login(e) {
   };
 
   const script = document.createElement('script');
-  script.src = `${URL_PLANILHA}?acao=login&chapa=${encodeURIComponent(chapa)}&senha=${encodeURIComponent(senha)}&callback=${callbackName}`;
+  const urlCompleta = `${URL_PLANILHA}?acao=login&chapa=${encodeURIComponent(chapa)}&senha=${encodeURIComponent(senha)}&callback=${callbackName}`;
+  console.log('[Login] Tentando conectar:', urlCompleta);
+  script.src = urlCompleta;
   script.onerror = () => {
     delete window[callbackName];
     btnSubmit.innerHTML = textoOriginal;
     btnSubmit.disabled = false;
-    console.error('Erro de conexão ao carregar script de login');
-    alert('Erro de conexão. Verifique sua internet.');
+    console.error('[Login ERRO] Falha ao carregar script. URL:', urlCompleta);
+    console.error('[Login ERRO] Verifique: 1) Internet, 2) Backend ativo, 3) CORS/Apps Script deployado');
+    errorMsg.textContent = 'Erro de conexão com servidor. Verifique sua internet.';
+    errorMsg.style.display = 'block';
   };
   // Timeout para evitar bloqueio se a resposta demorar muito
   script.timeout = setTimeout(() => {
@@ -282,13 +288,15 @@ async function login(e) {
       delete window[callbackName];
       btnSubmit.innerHTML = textoOriginal;
       btnSubmit.disabled = false;
-      console.error('Timeout na requisição de login');
-      alert('Tempo de resposta excedido. Tente novamente.');
+      console.error('[Login TIMEOUT] Requisição excedeu 5s. URL:', urlCompleta);
+      errorMsg.textContent = 'Tempo de resposta excedido. Tente novamente.';
+      errorMsg.style.display = 'block';
       document.body.removeChild(script);
     }
   }, 5000);
   script.onload = () => {
     clearTimeout(script.timeout);
+    console.log('[Login OK] Script carregado com sucesso');
   };
   document.body.appendChild(script);
 }
