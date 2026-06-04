@@ -738,76 +738,30 @@ async function buscarDadosLinha() {
 // BUSCAR DADOS DO VEÍCULO
 // ====================================================================
 async function buscarDadosVeiculo() {
+  // Esta função agora é apenas para compatibilidade
+  // O preenchimento automático é feito pelo evento 'input' em iniciarAutoComplete()
   const prefixo = getEl('cadastro-prefixo')?.value || '';
-  
-  // Verifica se é usuário de teste
   const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
   
   // Para usuário de teste com prefixo 210, usa dados fixos
   if (isTestUser && prefixo === '210') {
     preencherDadosVeiculoTeste();
-    return;
   }
-  
-  if (prefixo.length < 2 && !isTestUser) return;
-  
-  try {
-    const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(prefixo)}`;
-    const resp = await fetch(url);
-    const veiculo = await resp.json();
-    if (veiculo && veiculo.prefixo) {
-      if (getEl('cadastro-placa')) getEl('cadastro-placa').value = veiculo.placa || '';
-      if (getEl('cadastro-renavan')) getEl('cadastro-renavan').value = veiculo.renavan || '';
-      if (getEl('cadastro-ano-fab')) getEl('cadastro-ano-fab').value = veiculo.ano || '';
-      if (getEl('cadastro-marca')) getEl('cadastro-marca').value = veiculo.marca || '';
-      if (getEl('cadastro-modelo')) getEl('cadastro-modelo').value = veiculo.modelo || '';
-      if (getEl('cadastro-cor')) getEl('cadastro-cor').value = veiculo.cor || '';
-      if (getEl('cadastro-cidade-onibus')) getEl('cadastro-cidade-onibus').value = veiculo.cidade || '';
-      // Salva em sessionStorage para persistência
-      sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
-    }
-  } catch (e) { console.warn('Erro ao buscar veículo', e); }
 }
 
 // ====================================================================
 // BUSCAR DADOS DO MOTORISTA
 // ====================================================================
 async function buscarDadosMotorista() {
+  // Esta função agora é apenas para compatibilidade
+  // O preenchimento automático é feito pelo evento 'input' em iniciarAutoComplete()
   const chapa = getEl('cadastro-chapa')?.value || '';
-  
-  // Verifica se é usuário de teste
   const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
   
   // Para usuário de teste com chapa 98765, usa dados fixos
   if (isTestUser && chapa === '98765') {
     preencherDadosMotoristaTeste();
-    return;
   }
-  
-  if (chapa.length < 2 && !isTestUser) return;
-  
-  try {
-    const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(chapa)}`;
-    const resp = await fetch(url);
-    const operadores = await resp.json();
-    if (operadores && operadores.length > 0) {
-      const op = operadores[0];
-      if (getEl('cadastro-apelido')) getEl('cadastro-apelido').value = op.apelido || '';
-      if (getEl('cadastro-nome-completo')) getEl('cadastro-nome-completo').value = op.nome || '';
-      if (getEl('cadastro-cnh')) getEl('cadastro-cnh').value = op.cnh || '';
-      if (getEl('cadastro-validade-cnh')) getEl('cadastro-validade-cnh').value = op.validade_cnh || '';
-      if (getEl('cadastro-moto-logradouro')) getEl('cadastro-moto-logradouro').value = op.endereco || '';
-      if (getEl('cadastro-moto-bairro')) getEl('cadastro-moto-bairro').value = op.bairro || '';
-      if (getEl('cadastro-moto-cidade')) getEl('cadastro-moto-cidade').value = op.cidade || '';
-      if (getEl('cadastro-moto-complemento')) getEl('cadastro-moto-complemento').value = op.complemento || '';
-      if (getEl('cadastro-nascimento')) getEl('cadastro-nascimento').value = op.nascimento || '';
-      if (getEl('cadastro-naturalidade')) getEl('cadastro-naturalidade').value = op.naturalidade || '';
-      if (getEl('cadastro-nome-mae')) getEl('cadastro-nome-mae').value = op.nome_mae || '';
-      if (getEl('cadastro-celular')) getEl('cadastro-celular').value = op.celular || '';
-      // Salva em sessionStorage para persistência
-      sessionStorage.setItem('motorista_atual', JSON.stringify(op));
-    }
-  } catch (e) { console.warn('Erro ao buscar operador', e); }
 }
 
 // ====================================================================
@@ -1375,88 +1329,78 @@ function iniciarAutoComplete() {
   }
   
   if (prefixoInput && datalistVeiculos) {
-    // Para usuário de teste, usar gatilho mais rápido (input com menos delay)
-    const debounceTime = isTestUser ? 100 : 500;
-    prefixoInput.addEventListener('input', debounce(async function() {
-      const termo = this.value;
-      
-      // Para usuário de teste, ativa preenchimento automático com qualquer caractere
-      if (isTestUser && termo === '210') {
-        preencherDadosVeiculoTeste();
-        return;
-      }
-      
-      if (termo.length < 2 && !isTestUser) return;
-      
-      // Se for usuário de teste e digitou 210, já preenche
-      if (isTestUser && termo === '210') {
-        preencherDadosVeiculoTeste();
-        return;
-      }
-      
-      const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(termo)}`;
-      try {
-        const resp = await fetch(url);
-        const veiculo = await resp.json();
-        if (veiculo && veiculo.prefixo) {
-          datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
-          // Salva dados em sessionStorage para persistência
-          sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
-        } else {
-          datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
-        }
-      } catch(e) { 
-        console.warn(e);
-        datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
-      }
-    }, debounceTime));
-    
-    // Também adiciona evento de blur para garantir preenchimento
+    // Para usuário de teste, usar evento direto sem debounce
     if (isTestUser) {
+      prefixoInput.addEventListener('input', function() {
+        const termo = this.value;
+        // Ativa preenchimento automático imediatamente quando digitar 210
+        if (termo === '210') {
+          preencherDadosVeiculoTeste();
+        }
+      });
+      
+      // Também adiciona evento de blur para garantir preenchimento
       prefixoInput.addEventListener('blur', function() {
         if (this.value === '210') {
           preencherDadosVeiculoTeste();
         }
       });
+    } else {
+      // Para outros usuários, usa debounce normal
+      prefixoInput.addEventListener('input', debounce(async function() {
+        const termo = this.value;
+        if (termo.length < 2) return;
+        
+        const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(termo)}`;
+        try {
+          const resp = await fetch(url);
+          const veiculo = await resp.json();
+          if (veiculo && veiculo.prefixo) {
+            datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
+            sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
+          }
+        } catch(e) { 
+          console.warn(e);
+        }
+      }, 500));
     }
   }
   
   if (motoristaInput && datalistMotoristas) {
-    const debounceTime = isTestUser ? 100 : 500;
-    motoristaInput.addEventListener('input', debounce(async function() {
-      const termo = this.value;
-      
-      // Para usuário de teste, ativa preenchimento automático com chapa 98765
-      if (isTestUser && termo === '98765') {
-        preencherDadosMotoristaTeste();
-        return;
-      }
-      
-      if (termo.length < 2 && !isTestUser) return;
-      
-      const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(termo)}`;
-      try {
-        const resp = await fetch(url);
-        const operadores = await resp.json();
-        if (operadores && operadores.length) {
-          datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
-          // Salva primeiro operador em sessionStorage
-          if (operadores[0]) {
-            sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
-          }
-        } else {
-          datalistMotoristas.innerHTML = '';
-        }
-      } catch(e) { console.warn(e); }
-    }, debounceTime));
-    
-    // Também adiciona evento de blur para garantir preenchimento
+    // Para usuário de teste, usar evento direto sem debounce
     if (isTestUser) {
+      motoristaInput.addEventListener('input', function() {
+        const termo = this.value;
+        // Ativa preenchimento automático imediatamente quando digitar 98765
+        if (termo === '98765') {
+          preencherDadosMotoristaTeste();
+        }
+      });
+      
+      // Também adiciona evento de blur para garantir preenchimento
       motoristaInput.addEventListener('blur', function() {
         if (this.value === '98765') {
           preencherDadosMotoristaTeste();
         }
       });
+    } else {
+      // Para outros usuários, usa debounce normal
+      motoristaInput.addEventListener('input', debounce(async function() {
+        const termo = this.value;
+        if (termo.length < 2) return;
+        
+        const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(termo)}`;
+        try {
+          const resp = await fetch(url);
+          const operadores = await resp.json();
+          if (operadores && operadores.length) {
+            datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
+            if (operadores[0]) {
+              sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
+            }
+          }
+        } catch(e) { console.warn(e); }
+      }, 500));
     }
   }
 }
