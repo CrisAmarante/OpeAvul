@@ -242,7 +242,7 @@ function preencherEnderecoAutomatico() {
     }
   });
   
-  showToast('✅ Endereço preenchido automaticamente!');
+  showToast('✅ Feito!');
 }
 
 // Preenche automaticamente os dados do ônibus
@@ -272,7 +272,7 @@ function preencherDadosOnibusAutomatico() {
     }
   }
   
-  showToast('✅ Dados do ônibus preenchidos automaticamente!');
+  showToast('✅ Feito!');
 }
 
 // Preenche automaticamente os dados do motorista
@@ -306,7 +306,7 @@ function preencherDadosMotoristaAutomatico() {
     }
   }
   
-  showToast('✅ Dados do motorista preenchidos automaticamente!');
+  showToast('✅ Feito!');
 }
 
 // Exibe toast de notificação
