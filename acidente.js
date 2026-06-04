@@ -1340,6 +1340,13 @@ async function gravarParecer() {
     };
     
     recognition.onerror = (event) => {
+      // Silencia erros comuns de network e no-speech que ocorrem frequentemente
+      if (event.error === 'no-speech' || event.error === 'network') {
+        console.debug('Speech recognition: ', event.error);
+        ditandoParecer = false;
+        return;
+      }
+      
       console.warn('Erro no reconhecimento de fala:', event.error);
       alert('Erro no reconhecimento de fala: ' + event.error);
       ditandoParecer = false;

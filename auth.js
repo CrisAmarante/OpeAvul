@@ -242,6 +242,8 @@ async function login(e) {
   const callbackName = 'loginCallback_' + Date.now();
   
   window[callbackName] = function(resposta) {
+    // Limpa timeout se existir
+    if (script.timeout) clearTimeout(script.timeout);
     delete window[callbackName];
     btnSubmit.innerHTML = textoOriginal;
     btnSubmit.disabled = false;
@@ -271,7 +273,22 @@ async function login(e) {
     delete window[callbackName];
     btnSubmit.innerHTML = textoOriginal;
     btnSubmit.disabled = false;
+    console.error('Erro de conexão ao carregar script de login');
     alert('Erro de conexão. Verifique sua internet.');
+  };
+  // Timeout para evitar bloqueio se a resposta demorar muito
+  script.timeout = setTimeout(() => {
+    if (document.body.contains(script)) {
+      delete window[callbackName];
+      btnSubmit.innerHTML = textoOriginal;
+      btnSubmit.disabled = false;
+      console.error('Timeout na requisição de login');
+      alert('Tempo de resposta excedido. Tente novamente.');
+      document.body.removeChild(script);
+    }
+  }, 5000);
+  script.onload = () => {
+    clearTimeout(script.timeout);
   };
   document.body.appendChild(script);
 }
