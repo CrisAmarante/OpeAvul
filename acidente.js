@@ -1200,6 +1200,11 @@ async function gravarHistorico() {
       recognitionHistorico.stop();
     }
     ditandoHistorico = false;
+    // Remove estilos ativos
+    const textarea = getEl('cadastro-historico');
+    const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
+    if (textarea) textarea.style.borderColor = '';
+    if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
     return;
   }
   
@@ -1211,6 +1216,11 @@ async function gravarHistorico() {
     const textarea = getEl('cadastro-historico');
     if (!textarea) return;
     
+    // Adiciona moldura verde-clara e muda ícone do botão
+    textarea.style.borderColor = '#90EE90';
+    const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
+    if (btn) btn.innerHTML = '<i class="fas fa-volume-up"></i> Ouvindo...';
+    
     recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       const existing = textarea.value;
@@ -1221,17 +1231,27 @@ async function gravarHistorico() {
       // Silencia erros comuns de network e no-speech que ocorrem frequentemente
       if (event.error === 'no-speech' || event.error === 'network') {
         ditandoHistorico = false;
+        // Remove estilos ativos
+        textarea.style.borderColor = '';
+        if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
         return;
       }
       
       console.warn('Erro no reconhecimento de fala:', event.error);
       alert('Erro no reconhecimento de fala: ' + event.error);
       ditandoHistorico = false;
+      // Remove estilos ativos
+      textarea.style.borderColor = '';
+      if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
     };
     
     recognition.onend = () => {
       if (ditandoHistorico) {
         recognition.start(); // Reinicia se ainda estiver no modo ditado
+      } else {
+        // Remove estilos ativos quando parar
+        textarea.style.borderColor = '';
+        if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
       }
     };
     
@@ -1253,6 +1273,11 @@ function iniciarSimulacaoDitadoHistorico() {
   const textarea = getEl('cadastro-historico');
   if (!textarea) return;
   
+  // Adiciona moldura verde-clara e muda ícone do botão
+  textarea.style.borderColor = '#90EE90';
+  const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
+  if (btn) btn.innerHTML = '<i class="fas fa-volume-up"></i> Ouvindo...';
+  
   textarea.value = "";
   ditandoHistorico = true;
   
@@ -1264,6 +1289,9 @@ function iniciarSimulacaoDitadoHistorico() {
     } else {
       clearInterval(intervalo);
       ditandoHistorico = false;
+      // Remove estilos ativos
+      textarea.style.borderColor = '';
+      if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
       // Salva automaticamente após o ditado
       salvarRascunho(); 
     }
