@@ -1114,6 +1114,24 @@ function iniciarReconhecimentoFala() {
 }
 
 async function gravarHistorico() {
+  // Verifica condições para modo demonstração
+  const chapa = getEl('motorista-chapa')?.value || '';
+  const tipoAcidente = getEl('tipo-acidente')?.value || '';
+  const logradouro = getEl('logradouro-acidente')?.value || '';
+  const prefixo = getEl('onibus-prefixo')?.value || '';
+  
+  const isDemoUser = chapa === '55555';
+  const demoConditionsMet = isDemoUser && 
+                           tipoAcidente === 'Colisão com vítimas' && 
+                           logradouro.toLowerCase().includes('av. hum, 1345') && 
+                           prefixo === '210';
+
+  if (isDemoUser && demoConditionsMet) {
+    // MODO DEMONSTRAÇÃO: Simula digitação sem usar o microfone real
+    iniciarSimulacaoDitadoHistorico();
+    return;
+  }
+
   if (ditandoHistorico) {
     // Parar ditado
     if (recognitionHistorico) {
@@ -1139,7 +1157,10 @@ async function gravarHistorico() {
     
     recognition.onerror = (event) => {
       console.warn('Erro no reconhecimento de fala:', event.error);
-      alert('Erro no reconhecimento de fala: ' + event.error);
+      // Não mostra alert para erros comuns como no-speech ou network em modo normal
+      if (event.error !== 'no-speech' && event.error !== 'network') {
+        alert('Erro no reconhecimento de fala: ' + event.error);
+      }
       ditandoHistorico = false;
     };
     
@@ -1151,11 +1172,37 @@ async function gravarHistorico() {
     
     recognition.start();
     ditandoHistorico = true;
-    alert('🎤 Ditando... Clique em \"Gravar\" novamente para parar.');
   } catch (e) {
     console.warn('Erro ao iniciar reconhecimento de fala', e);
     alert('Não foi possível iniciar o reconhecimento de fala. Verifique as permissões e se seu navegador é compatível.');
   }
+}
+
+function iniciarSimulacaoDitadoHistorico() {
+  const textoCompleto = "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira. Após a queda, o motociclista caiu e sofreu arranhões leves. A moto foi pra debaixo do ônibus e ficou danificada.";
+  
+  // Divide em palavras para simular digitação/fala
+  const palavras = textoCompleto.split(' ');
+  let indice = 0;
+  
+  const textarea = getEl('cadastro-historico');
+  if (!textarea) return;
+  
+  textarea.value = "";
+  ditandoHistorico = true;
+  
+  const intervalo = setInterval(() => {
+    if (indice < palavras.length) {
+      textarea.value += (indice > 0 ? ' ' : '') + palavras[indice];
+      textarea.scrollTop = textarea.scrollHeight; // Auto-scroll
+      indice++;
+    } else {
+      clearInterval(intervalo);
+      ditandoHistorico = false;
+      // Salva automaticamente após o ditado
+      salvarRascunho(); 
+    }
+  }, 150); // Velocidade de digitação/fala
 }
 
 async function gravarParecer() {
