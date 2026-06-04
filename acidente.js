@@ -780,15 +780,21 @@ function carregarDadosInspetor() {
 // ====================================================================
 // ANEXOS - FOTOS
 // ====================================================================
-async function anexarFotosColetivo(allowBoth = true) {
+async function anexarFotosColetivo(modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
-  if (!allowBoth) {
+  
+  // Configura o input baseado no modo selecionado
+  if (modo === 'camera') {
     input.capture = 'environment';
+  } else if (modo === 'galeria') {
+    // Não adiciona capture, permitindo apenas galeria
+    input.removeAttribute('capture');
   }
+  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
+  
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosColetivoArray.length + files.length > 6) {
@@ -808,15 +814,21 @@ async function anexarFotosColetivo(allowBoth = true) {
   input.click();
 }
 
-async function anexarFotosLocal(allowBoth = true) {
+async function anexarFotosLocal(modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
-  if (!allowBoth) {
+  
+  // Configura o input baseado no modo selecionado
+  if (modo === 'camera') {
     input.capture = 'environment';
+  } else if (modo === 'galeria') {
+    // Não adiciona capture, permitindo apenas galeria
+    input.removeAttribute('capture');
   }
+  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
+  
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (fotosLocalArray.length + files.length > 6) {
@@ -836,15 +848,21 @@ async function anexarFotosLocal(allowBoth = true) {
   input.click();
 }
 
-async function anexarFotosVeiculo(index, allowBoth = true) {
+async function anexarFotosVeiculo(index, modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
-  if (!allowBoth) {
+  
+  // Configura o input baseado no modo selecionado
+  if (modo === 'camera') {
     input.capture = 'environment';
+  } else if (modo === 'galeria') {
+    // Não adiciona capture, permitindo apenas galeria
+    input.removeAttribute('capture');
   }
+  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
+  
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!bensArray[index].fotos) bensArray[index].fotos = [];
@@ -865,15 +883,21 @@ async function anexarFotosVeiculo(index, allowBoth = true) {
   input.click();
 }
 
-async function anexarFotosVitima(index, allowBoth = true) {
+async function anexarFotosVitima(index, modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
   input.accept = 'image/*';
-  // Se allowBoth for true, permite câmera e galeria. Se false, apenas câmera
-  if (!allowBoth) {
+  
+  // Configura o input baseado no modo selecionado
+  if (modo === 'camera') {
     input.capture = 'environment';
+  } else if (modo === 'galeria') {
+    // Não adiciona capture, permitindo apenas galeria
+    input.removeAttribute('capture');
   }
+  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
+  
   input.onchange = async (e) => {
     const files = Array.from(e.target.files);
     if (!vitimasArray[index].fotos) vitimasArray[index].fotos = [];
@@ -1016,7 +1040,10 @@ function renderizarBensFixos() {
         </div>
         <div class="field">
           <label>Fotos do Terceiro (até 6)</label>
-          <button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx})">➕ Adicionar fotos</button>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'camera')">📷 Câmera</button>
+            <button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'galeria')">🖼️ Galeria</button>
+          </div>
           <div class="grid-anexos-preview" style="margin-top: 8px;">
             ${bem.fotos && bem.fotos.length > 0 ? bem.fotos.map((f, i) => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : '<small>Nenhuma foto</small>'}
           </div>
@@ -1081,7 +1108,10 @@ function renderizarVitimasFixas() {
         <div class="field"><label>Atendimento</label><input type="text" value="${v.atendimento || ''}" onchange="atualizarVitima(${idx}, 'atendimento', this.value)"></div>
         <div class="field">
           <label>Fotos (opcional)</label>
-          <button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx})">➕ Adicionar fotos</button>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'camera')">📷 Câmera</button>
+            <button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'galeria')">🖼️ Galeria</button>
+          </div>
           <div class="grid-anexos-preview" style="margin-top: 8px;">
             ${v.fotos && v.fotos.length > 0 ? v.fotos.map((f, i) => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : '<small>Nenhuma foto</small>'}
           </div>
