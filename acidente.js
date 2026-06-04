@@ -1090,91 +1090,116 @@ function renderizarTestemunhasFixas() {
 }
 
 // ====================================================================
-// GRAVAÇÃO DE ÁUDIO (HISTÓRICO E PARECER)
+// DITADO POR VOZ (HISTÓRICO E PARECER) - Speech-to-Text
 // ====================================================================
-let mediaRecorder = null;
-let audioChunks = [];
-let gravandoHistorico = false;
-let gravandoParecer = false;
+let recognitionHistorico = null;
+let recognitionParecer = null;
+let ditandoHistorico = false;
+let ditandoParecer = false;
+
+function iniciarReconhecimentoFala() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Seu navegador não suporta reconhecimento de fala. Use o Chrome ou Edge.');
+    return null;
+  }
+  
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  
+  return recognition;
+}
 
 async function gravarHistorico() {
-  if (gravandoHistorico) {
-    // Parar gravação
-    mediaRecorder.stop();
-    gravandoHistorico = false;
+  if (ditandoHistorico) {
+    // Parar ditado
+    if (recognitionHistorico) {
+      recognitionHistorico.stop();
+    }
+    ditandoHistorico = false;
     return;
   }
   
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
+    const recognition = iniciarReconhecimentoFala();
+    if (!recognition) return;
     
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
+    recognitionHistorico = recognition;
+    const textarea = getEl('cadastro-historico');
+    if (!textarea) return;
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.results.length - 1][0].transcript;
+      const existing = textarea.value;
+      textarea.value = existing + (existing ? ' ' : '') + transcript;
     };
     
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-      const base64 = await blobToBase64(audioBlob);
-      const textarea = getEl('cadastro-historico');
-      if (textarea) {
-        const existing = textarea.value;
-        textarea.value = existing + (existing ? '\n' : '') + '[Áudio gravado]';
+    recognition.onerror = (event) => {
+      console.warn('Erro no reconhecimento de fala:', event.error);
+      alert('Erro no reconhecimento de fala: ' + event.error);
+      ditandoHistorico = false;
+    };
+    
+    recognition.onend = () => {
+      if (ditandoHistorico) {
+        recognition.start(); // Reinicia se ainda estiver no modo ditado
       }
-      stream.getTracks().forEach(track => track.stop());
     };
     
-    mediaRecorder.start();
-    gravandoHistorico = true;
-    alert('🎤 Gravando... Clique em "Gravar" novamente para parar.');
+    recognition.start();
+    ditandoHistorico = true;
+    alert('🎤 Ditando... Clique em \"Gravar\" novamente para parar.');
   } catch (e) {
-    console.warn('Erro ao acessar microfone', e);
-    alert('Não foi possível acessar o microfone. Verifique as permissões.');
+    console.warn('Erro ao iniciar reconhecimento de fala', e);
+    alert('Não foi possível iniciar o reconhecimento de fala. Verifique as permissões e se seu navegador é compatível.');
   }
 }
 
 async function gravarParecer() {
-  if (gravandoParecer) {
-    mediaRecorder.stop();
-    gravandoParecer = false;
+  if (ditandoParecer) {
+    if (recognitionParecer) {
+      recognitionParecer.stop();
+    }
+    ditandoParecer = false;
     return;
   }
   
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
+    const recognition = iniciarReconhecimentoFala();
+    if (!recognition) return;
     
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
+    recognitionParecer = recognition;
+    const textarea = getEl('parecer-visao');
+    if (!textarea) return;
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.results.length - 1][0].transcript;
+      const existing = textarea.value;
+      textarea.value = existing + (existing ? ' ' : '') + transcript;
     };
     
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-      const textarea = getEl('parecer-visao');
-      if (textarea) {
-        const existing = textarea.value;
-        textarea.value = existing + (existing ? '\n' : '') + '[Áudio gravado]';
+    recognition.onerror = (event) => {
+      console.warn('Erro no reconhecimento de fala:', event.error);
+      alert('Erro no reconhecimento de fala: ' + event.error);
+      ditandoParecer = false;
+    };
+    
+    recognition.onend = () => {
+      if (ditandoParecer) {
+        recognition.start();
       }
-      stream.getTracks().forEach(track => track.stop());
     };
     
-    mediaRecorder.start();
-    gravandoParecer = true;
-    alert('🎤 Gravando... Clique em "Gravar" novamente para parar.');
+    recognition.start();
+    ditandoParecer = true;
+    alert('🎤 Ditando... Clique em \"Gravar\" novamente para parar.');
   } catch (e) {
-    console.warn('Erro ao acessar microfone', e);
-    alert('Não foi possível acessar o microfone. Verifique as permissões.');
+    console.warn('Erro ao iniciar reconhecimento de fala', e);
+    alert('Não foi possível iniciar o reconhecimento de fala. Verifique as permissões e se seu navegador é compatível.');
   }
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.readAsDataURL(blob);
-  });
 }
 
 // ====================================================================
