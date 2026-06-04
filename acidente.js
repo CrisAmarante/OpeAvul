@@ -1218,11 +1218,14 @@ async function gravarHistorico() {
     };
     
     recognition.onerror = (event) => {
-      console.warn('Erro no reconhecimento de fala:', event.error);
-      // Não mostra alert para erros comuns como no-speech ou network em modo normal
-      if (event.error !== 'no-speech' && event.error !== 'network') {
-        alert('Erro no reconhecimento de fala: ' + event.error);
+      // Silencia erros comuns de network e no-speech que ocorrem frequentemente
+      if (event.error === 'no-speech' || event.error === 'network') {
+        ditandoHistorico = false;
+        return;
       }
+      
+      console.warn('Erro no reconhecimento de fala:', event.error);
+      alert('Erro no reconhecimento de fala: ' + event.error);
       ditandoHistorico = false;
     };
     
