@@ -34,9 +34,9 @@ const DADOS_DEMONSTRACAO = {
     cidade: "Osasco",
     complemento: "Protegido",
     nascimento: "", // Será calculado baseado na idade típica
-    naturalidade: "M** M******* P*****",
-    nomeMae: "(11) 98765-****",
-    celular: ""
+    naturalidade: "Osasco",
+    nomeMae: "M** M******* P*****",
+    celular: "(11) 98765-****"
   },
   historico: "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira.\nApós a queda, o motociclista caiu e sofreu arranhões leves.\nA moto foi pra debaixo do ônibus e ficou danificada."
 };
@@ -173,7 +173,7 @@ function verificarCondicoesHistorico() {
   }
   estadoDemo.tipoAcidenteSelecionado = true;
   
-  // Verifica logradouro
+  // Verifica logradouro (sem validação da linha)
   const logradouroInput = document.getElementById('cadastro-logradouro');
   if (!logradouroInput || !logradouroInput.value.toLowerCase().includes('av. hum')) {
     return false;
@@ -190,88 +190,34 @@ function verificarCondicoesHistorico() {
   return true;
 }
 
-// Inicia o ditado do texto padrão usando a API de reconhecimento de fala
+// Inicia o ditado do texto padrão simulando digitação em tempo real
 function iniciarDitadoTextoPadrao() {
   const textarea = document.getElementById('cadastro-historico');
   if (!textarea) return;
-  
-  // Verifica se o navegador suporta Web Speech API
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    alert('❌ Navegador não suporta reconhecimento de fala.');
-    return;
-  }
-  
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recognition = new SpeechRecognition();
-  
-  recognition.lang = 'pt-BR';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
   
   // Divide o texto em partes menores para simular ditado em tempo real
   const textoCompleto = DADOS_DEMONSTRACAO.historico;
   const partes = textoCompleto.split('. ');
   let parteIndex = 0;
   
-  recognition.onresult = (event) => {
-    // Não faz nada aqui, pois vamos inserir o texto diretamente
-  };
-  
-  recognition.onend = () => {
-    // Após cada "frase", espera um pouco e continua
+  // Função para inserir próxima parte do texto
+  function inserirProximaParte() {
     if (parteIndex < partes.length) {
-      setTimeout(() => {
-        if (parteIndex < partes.length) {
-          const parte = partes[parteIndex];
-          const sufixo = parteIndex < partes.length - 1 ? '. ' : '';
-          const existing = textarea.value;
-          textarea.value = existing + (existing ? ' ' : '') + parte + sufixo;
-          parteIndex++;
-          
-          // Simula continuação do ditado
-          if (parteIndex < partes.length) {
-            try {
-              recognition.start();
-            } catch (e) {
-              console.log('Fim do ditado');
-            }
-          }
-        }
-      }, 1500); // 1.5 segundos entre frases para simular fala natural
+      const parte = partes[parteIndex];
+      const sufixo = parteIndex < partes.length - 1 ? '. ' : '';
+      const existing = textarea.value;
+      textarea.value = existing + (existing ? ' ' : '') + parte + sufixo;
+      parteIndex++;
+      
+      // Continua com a próxima parte após delay para simular fala natural
+      if (parteIndex < partes.length) {
+        setTimeout(inserirProximaParte, 1500); // 1.5 segundos entre frases
+      }
     }
-  };
-  
-  recognition.onerror = (event) => {
-    console.warn('Erro no reconhecimento (demo):', event.error);
-    // Em caso de erro, continua com a próxima parte
-    if (parteIndex < partes.length) {
-      setTimeout(() => {
-        const parte = partes[parteIndex];
-        const sufixo = parteIndex < partes.length - 1 ? '. ' : '';
-        const existing = textarea.value;
-        textarea.value = existing + (existing ? ' ' : '') + parte + sufixo;
-        parteIndex++;
-        if (parteIndex < partes.length) {
-          try {
-            recognition.start();
-          } catch (e) {}
-        }
-      }, 1500);
-    }
-  };
-  
-  // Feedback visual inicial
-  showToast('🎤 Iniciando ditado automático...');
-  
-  // Inicia o processo
-  try {
-    recognition.start();
-  } catch (e) {
-    // Se não conseguir iniciar, insere o texto diretamente
-    textarea.value = textoCompleto;
-    showToast('✅ Texto do histórico inserido!');
   }
+  
+  // Inicia o processo de ditado simulado
+  inserirProximaParte();
 }
 
 // Preenche automaticamente Bairro, Cidade e CEP
