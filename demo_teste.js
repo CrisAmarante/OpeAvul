@@ -13,10 +13,6 @@ const DADOS_DEMONSTRACAO = {
     cidade: "São Paulo",
     cep: "05823-075"
   },
-  linha: {
-    codigo: "033",
-    sentido: "Sta. Antônio"
-  },
   onibus: {
     prefixo: "210",
     placa: "STC-4F92",
@@ -45,6 +41,15 @@ const DADOS_DEMONSTRACAO = {
   historico: "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira.\nApós a queda, o motociclista caiu e sofreu arranhões leves.\nA moto foi pra debaixo do ônibus e ficou danificada."
 };
 
+// Estado do modo demo
+let estadoDemo = {
+  loginValido: false,
+  tipoAcidenteSelecionado: false,
+  logradouroPreenchido: false,
+  prefixoPreenchido: false,
+  textoHistoricoInserido: false
+};
+
 // Verifica se é o usuário de teste
 function isUsuarioTeste() {
   const chapa = localStorage.getItem('inspectorChapa') || '';
@@ -56,6 +61,7 @@ function ativarModoDemonstracao() {
   if (!isUsuarioTeste()) return;
   
   console.log('🧪 MODO DE TESTE ATIVADO - Usuário 55555');
+  estadoDemo.loginValido = true;
   
   // Aguarda o DOM estar completamente carregado e o modal ser aberto
   // Observa quando o modal de envio de informações é aberto
@@ -92,27 +98,26 @@ function configurarAutoPreenchimento() {
           this.value.toLowerCase().includes('av. hum 1345') ||
           this.value.toLowerCase().includes('av hum 1345')) {
         preencherEnderecoAutomatico();
+        estadoDemo.logradouroPreenchido = true;
+        verificarCondicoesHistorico();
       }
     });
   }
   
-  // Monitora o campo de código da linha
+  // Monitora o campo de código da linha (apenas como gatilho, sem auto-preenchimento)
   const codigoLinhaSelect = document.getElementById('cadastro-codigo-linha');
   if (codigoLinhaSelect) {
     codigoLinhaSelect.addEventListener('change', function() {
-      if (this.value === '033' || this.value.includes('033')) {
-        setTimeout(() => {
-          const sentidoInput = document.getElementById('cadastro-sentido-linha');
-          if (sentidoInput) {
-            sentidoInput.value = DADOS_DEMONSTRACAO.linha.sentido;
-            sentidoInput.style.backgroundColor = '#d4edda';
-            setTimeout(() => {
-              sentidoInput.style.backgroundColor = '';
-            }, 1500);
-            showToast('✅ Sentido da linha preenchido!');
-          }
-        }, 500);
-      }
+      // Apenas registra que a linha foi selecionada, não preenche automaticamente
+      console.log('📋 Linha selecionada:', this.value);
+    });
+  }
+  
+  // Monitora o campo de sentido da linha (apenas como gatilho)
+  const sentidoLinhaInput = document.getElementById('cadastro-sentido-linha');
+  if (sentidoLinhaInput) {
+    sentidoLinhaInput.addEventListener('blur', function() {
+      console.log('📍 Sentido da linha:', this.value);
     });
   }
   
@@ -122,6 +127,8 @@ function configurarAutoPreenchimento() {
     prefixoInput.addEventListener('blur', function() {
       if (this.value === '210') {
         preencherDadosOnibusAutomatico();
+        estadoDemo.prefixoPreenchido = true;
+        verificarCondicoesHistorico();
       }
     });
   }
@@ -136,14 +143,135 @@ function configurarAutoPreenchimento() {
     });
   }
   
-  // Intercepta a função gravarHistorico para mostrar texto em vez de gravar áudio
+  // Intercepta a função gravarHistorico para usar ditado por voz em vez de mostrar texto direto
   if (window.gravarHistoricoOriginal === undefined) {
     window.gravarHistoricoOriginal = window.gravarHistorico;
   }
   
   window.gravarHistorico = function() {
-    mostrarTextoHistoricoDemo();
+    // Verifica se todas as condições foram atendidas
+    if (verificarCondicoesHistorico()) {
+      // Inicia o ditado com o texto padrão
+      iniciarDitadoTextoPadrao();
+    } else {
+      // Comportamento normal se condições não forem atendidas
+      if (window.gravarHistoricoOriginal) {
+        window.gravarHistoricoOriginal();
+      }
+    }
   };
+}
+
+// Verifica se todas as condições para o histórico automático foram atendidas
+function verificarCondicoesHistorico() {
+  if (!estadoDemo.loginValido) return false;
+  
+  // Verifica tipo de acidente
+  const tipoAcidenteRadio = document.querySelector('input[name="tipo-acidente"]:checked');
+  if (!tipoAcidenteRadio || tipoAcidenteRadio.value !== 'colisao_vitimas') {
+    return false;
+  }
+  estadoDemo.tipoAcidenteSelecionado = true;
+  
+  // Verifica logradouro
+  const logradouroInput = document.getElementById('cadastro-logradouro');
+  if (!logradouroInput || !logradouroInput.value.toLowerCase().includes('av. hum')) {
+    return false;
+  }
+  estadoDemo.logradouroPreenchido = true;
+  
+  // Verifica prefixo
+  const prefixoInput = document.getElementById('cadastro-prefixo');
+  if (!prefixoInput || prefixoInput.value !== '210') {
+    return false;
+  }
+  estadoDemo.prefixoPreenchido = true;
+  
+  return true;
+}
+
+// Inicia o ditado do texto padrão usando a API de reconhecimento de fala
+function iniciarDitadoTextoPadrao() {
+  const textarea = document.getElementById('cadastro-historico');
+  if (!textarea) return;
+  
+  // Verifica se o navegador suporta Web Speech API
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('❌ Navegador não suporta reconhecimento de fala.');
+    return;
+  }
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  
+  recognition.lang = 'pt-BR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  
+  // Divide o texto em partes menores para simular ditado em tempo real
+  const textoCompleto = DADOS_DEMONSTRACAO.historico;
+  const partes = textoCompleto.split('. ');
+  let parteIndex = 0;
+  
+  recognition.onresult = (event) => {
+    // Não faz nada aqui, pois vamos inserir o texto diretamente
+  };
+  
+  recognition.onend = () => {
+    // Após cada "frase", espera um pouco e continua
+    if (parteIndex < partes.length) {
+      setTimeout(() => {
+        if (parteIndex < partes.length) {
+          const parte = partes[parteIndex];
+          const sufixo = parteIndex < partes.length - 1 ? '. ' : '';
+          const existing = textarea.value;
+          textarea.value = existing + (existing ? ' ' : '') + parte + sufixo;
+          parteIndex++;
+          
+          // Simula continuação do ditado
+          if (parteIndex < partes.length) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.log('Fim do ditado');
+            }
+          }
+        }
+      }, 1500); // 1.5 segundos entre frases para simular fala natural
+    }
+  };
+  
+  recognition.onerror = (event) => {
+    console.warn('Erro no reconhecimento (demo):', event.error);
+    // Em caso de erro, continua com a próxima parte
+    if (parteIndex < partes.length) {
+      setTimeout(() => {
+        const parte = partes[parteIndex];
+        const sufixo = parteIndex < partes.length - 1 ? '. ' : '';
+        const existing = textarea.value;
+        textarea.value = existing + (existing ? ' ' : '') + parte + sufixo;
+        parteIndex++;
+        if (parteIndex < partes.length) {
+          try {
+            recognition.start();
+          } catch (e) {}
+        }
+      }, 1500);
+    }
+  };
+  
+  // Feedback visual inicial
+  showToast('🎤 Iniciando ditado automático...');
+  
+  // Inicia o processo
+  try {
+    recognition.start();
+  } catch (e) {
+    // Se não conseguir iniciar, insere o texto diretamente
+    textarea.value = textoCompleto;
+    showToast('✅ Texto do histórico inserido!');
+  }
 }
 
 // Preenche automaticamente Bairro, Cidade e CEP
@@ -235,25 +363,6 @@ function preencherDadosMotoristaAutomatico() {
   showToast('✅ Dados do motorista preenchidos automaticamente!');
 }
 
-// Mostra o texto do histórico em vez de gravar áudio
-function mostrarTextoHistoricoDemo() {
-  const textarea = document.getElementById('cadastro-historico');
-  if (!textarea) return;
-  
-  // Em vez de iniciar gravação de áudio, mostra o texto pré-definido
-  if (confirm('🎤 Modo Demonstração:\n\nDeseja inserir o texto de histórico padrão em vez de gravar áudio?')) {
-    textarea.value = DADOS_DEMONSTRACAO.historico;
-    
-    // Feedback visual
-    textarea.style.backgroundColor = '#d4edda';
-    setTimeout(() => {
-      textarea.style.backgroundColor = '';
-    }, 1500);
-    
-    showToast('✅ Texto do histórico inserido automaticamente!');
-  }
-}
-
 // Exibe toast de notificação
 function showToast(mensagem) {
   // Remove toast anterior se existir
@@ -304,7 +413,8 @@ window.isUsuarioTeste = isUsuarioTeste;
 window.preencherEnderecoAutomatico = preencherEnderecoAutomatico;
 window.preencherDadosOnibusAutomatico = preencherDadosOnibusAutomatico;
 window.preencherDadosMotoristaAutomatico = preencherDadosMotoristaAutomatico;
-window.mostrarTextoHistoricoDemo = mostrarTextoHistoricoDemo;
+window.iniciarDitadoTextoPadrao = iniciarDitadoTextoPadrao;
+window.verificarCondicoesHistorico = verificarCondicoesHistorico;
 
 // Inicializa automaticamente quando o DOM estiver pronto
 if (document.readyState === 'loading') {
