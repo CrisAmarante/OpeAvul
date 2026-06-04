@@ -1213,7 +1213,7 @@ function iniciarAutoComplete() {
   
   // Adiciona opção de demonstração para o prefixo 210
   if (datalistVeiculos) {
-    datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
+    datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
   }
   
   if (prefixoInput && datalistVeiculos) {
@@ -1227,11 +1227,11 @@ function iniciarAutoComplete() {
         if (veiculo && veiculo.prefixo) {
           datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
         } else {
-          datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
+          datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
         }
       } catch(e) { 
         console.warn(e);
-        datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Demo)"></option>';
+        datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
       }
     }, 500));
   }
@@ -1269,7 +1269,7 @@ async function carregarListaLinhas() {
     // Adiciona linha de demonstração 033
     const optionDemo = document.createElement('option');
     optionDemo.value = '033';
-    optionDemo.textContent = '033 - Sta. Antônio (Demo)';
+    optionDemo.textContent = '033 - Sta. Antônio (Inspetor de Testes)';
     selectLinha.appendChild(optionDemo);
     
     // Tenta carregar demais linhas da API

@@ -198,12 +198,12 @@ async function login(e) {
     setTimeout(() => {
       localStorage.setItem('inspectorLoggedIn', 'true');
       localStorage.setItem('inspectorName', 'Usuário Teste');
-      localStorage.setItem('inspectorApelido', 'Demo');
+      localStorage.setItem('inspectorApelido', 'Inspetor de Testes');
       localStorage.setItem('inspectorRole', 'Inspetor');
       localStorage.setItem('inspectorChapa', '55555');
       window.currentUserRole = 'Inspetor';
       
-      registrarLog('Demo');
+      registrarLog('Inspetor de Testes');
       window.modals.login.close();
       checkLoginStatus();
       
