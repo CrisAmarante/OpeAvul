@@ -27,6 +27,21 @@ const DADOS_DEMONSTRACAO = {
     cor: "Prata",
     cidade: "Osasco"
   },
+  motorista: {
+    chapa: "98765",
+    apelido: "Motorista Padrão",
+    nomeCompleto: "123465***",
+    cnh: "Protegido",
+    validadeCnh: "2033-03-30",
+    logradouro: "Protegido",
+    bairro: "Protegido",
+    cidade: "Osasco",
+    complemento: "Protegido",
+    nascimento: "", // Será calculado baseado na idade típica
+    naturalidade: "M** M******* P*****",
+    nomeMae: "(11) 98765-****",
+    celular: ""
+  },
   historico: "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira.\nApós a queda, o motociclista caiu e sofreu arranhões leves.\nA moto foi pra debaixo do ônibus e ficou danificada."
 };
 
@@ -111,6 +126,16 @@ function configurarAutoPreenchimento() {
     });
   }
   
+  // Monitora o campo de chapa do motorista
+  const chapaMotoristaInput = document.getElementById('cadastro-chapa');
+  if (chapaMotoristaInput) {
+    chapaMotoristaInput.addEventListener('blur', function() {
+      if (this.value === '98765') {
+        preencherDadosMotoristaAutomatico();
+      }
+    });
+  }
+  
   // Intercepta a função gravarHistorico para mostrar texto em vez de gravar áudio
   if (window.gravarHistoricoOriginal === undefined) {
     window.gravarHistoricoOriginal = window.gravarHistorico;
@@ -174,6 +199,40 @@ function preencherDadosOnibusAutomatico() {
   }
   
   showToast('✅ Dados do ônibus preenchidos automaticamente!');
+}
+
+// Preenche automaticamente os dados do motorista
+function preencherDadosMotoristaAutomatico() {
+  console.log('👨‍✈️ Preenchendo dados do motorista automático...');
+  
+  const dados = DADOS_DEMONSTRACAO.motorista;
+  
+  const campos = {
+    'cadastro-apelido': dados.apelido,
+    'cadastro-nome-completo': dados.nomeCompleto,
+    'cadastro-cnh': dados.cnh,
+    'cadastro-validade-cnh': dados.validadeCnh,
+    'cadastro-moto-logradouro': dados.logradouro,
+    'cadastro-moto-bairro': dados.bairro,
+    'cadastro-moto-cidade': dados.cidade,
+    'cadastro-moto-complemento': dados.complemento,
+    'cadastro-naturalidade': dados.naturalidade,
+    'cadastro-nome-mae': dados.nomeMae,
+    'cadastro-celular': dados.celular
+  };
+  
+  for (const [id, valor] of Object.entries(campos)) {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = valor;
+      input.style.backgroundColor = '#d4edda';
+      setTimeout(() => {
+        input.style.backgroundColor = '';
+      }, 1500);
+    }
+  }
+  
+  showToast('✅ Dados do motorista preenchidos automaticamente!');
 }
 
 // Mostra o texto do histórico em vez de gravar áudio
@@ -244,6 +303,7 @@ window.ativarModoDemonstracao = ativarModoDemonstracao;
 window.isUsuarioTeste = isUsuarioTeste;
 window.preencherEnderecoAutomatico = preencherEnderecoAutomatico;
 window.preencherDadosOnibusAutomatico = preencherDadosOnibusAutomatico;
+window.preencherDadosMotoristaAutomatico = preencherDadosMotoristaAutomatico;
 window.mostrarTextoHistoricoDemo = mostrarTextoHistoricoDemo;
 
 // Inicializa automaticamente quando o DOM estiver pronto
