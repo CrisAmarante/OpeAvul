@@ -46,6 +46,13 @@ async function checkLoginStatus() {
 // ====================================================================
 async function verificarOcorrenciasIncompletas() {
   const currentUser = localStorage.getItem('inspectorApelido');
+  const currentChapa = localStorage.getItem('inspectorChapa');
+  
+  // Não mostrar toast de ocorrências incompletas para usuário de teste (55555)
+  if (currentChapa === '55555') {
+    return;
+  }
+  
   if (!currentUser) return;
   
   try {
