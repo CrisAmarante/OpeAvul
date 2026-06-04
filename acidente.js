@@ -1172,27 +1172,27 @@ function iniciarReconhecimentoFala() {
 }
 
 async function gravarHistorico() {
-  // Verifica condições para modo demonstração
+  // Verifica se é usuário de teste (chapa 55555)
   const chapa = getEl('cadastro-chapa')?.value || '';
-  
-  // Tipo de acidente - radio buttons usam name, precisamos pegar o checked
+  const isDemoUser = chapa === '55555';
+
+  if (isDemoUser) {
+    // MODO DEMONSTRAÇÃO: Simula digitação sem usar o microfone real
+    iniciarSimulacaoDitadoHistorico();
+    return;
+  }
+
+  // Validações completas apenas para usuários normais
   const tipoAcidenteEl = document.querySelector('input[name="tipo-acidente"]:checked');
   const tipoAcidente = tipoAcidenteEl ? tipoAcidenteEl.value : '';
   
   const logradouro = getEl('cadastro-logradouro')?.value || '';
   const prefixo = getEl('cadastro-prefixo')?.value || '';
   
-  const isDemoUser = chapa === '55555';
   const demoConditionsMet = isDemoUser && 
                            tipoAcidente === 'colisao_com_vitimas' && 
                            logradouro.toLowerCase().includes('av. hum, 1345') && 
                            prefixo === '210';
-
-  if (isDemoUser && demoConditionsMet) {
-    // MODO DEMONSTRAÇÃO: Simula digitação sem usar o microfone real
-    iniciarSimulacaoDitadoHistorico();
-    return;
-  }
 
   if (ditandoHistorico) {
     // Parar ditado
