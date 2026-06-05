@@ -93,14 +93,18 @@ function verificarEstruturaAbas() {
       }
     }
     
-    // Ajuste de largura básica
+    // Ajuste de largura básica - OTIMIZADO PARA EVITAR TIMEOUT
     if(sheet) {
       sheet.setFrozenRows(1);
-      sheet.autoResizeColumns(1, sheet.getLastColumn());
+      // Aplica autoResize apenas nas primeiras 5 colunas para evitar timeout
+      var colsToResize = Math.min(5, sheet.getLastColumn());
+      if (colsToResize > 0) {
+        sheet.autoResizeColumns(1, colsToResize);
+      }
     }
   });
   
-  SpreadsheetApp.getUi().alert('Estrutura das abas verificada e atualizada com sucesso!');
+  Browser.msgBox('✅ Estrutura das abas verificada e atualizada com sucesso!');
 }
 
 /**
