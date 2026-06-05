@@ -207,3 +207,12 @@ textarea { resize: vertical; }
   .cards-grid { gap: 20px; max-width: 700px; }
   .card, .inspector-card { width: calc(33.333% - 14px); min-width: 160px; min-height: 130px; }
 }
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+.toast-feedback {
+  animation: fadeInOut 2s ease forwards;
+}
