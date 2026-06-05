@@ -477,31 +477,41 @@ function handleBuscarLinhas(termo) {
 }
 
 // Buscar ocorrências incompletas de um fiscal
+// Retorna SEMPRE um array, mesmo que vazio, para evitar erro no frontend
 function handleBuscarOcorrenciasIncompletas(apelido) {
-  var sheet = SS.getSheetByName('Ocorrencia_acidentes');
-  if (!sheet) return responseJSON({ success: false, message: 'Aba Ocorrencia_acidentes não encontrada' });
-  
-  var data = sheet.getDataRange().getValues();
-  var headers = data[0];
-  var resultados = [];
-  
-  for (var i = 1; i < data.length; i++) {
-    var fiscalCriador = String(data[i][4] || '').trim();
-    var finalizado = data[i][12];
-    
-    // Filtrar por fiscal e status não finalizado
-    if (fiscalCriador === String(apelido || '').trim() && 
-        (finalizado === false || finalizado === 'false' || finalizado === '')) {
-      
-      var ocorrencia = {};
-      headers.forEach(function(h, index) {
-        ocorrencia[h] = data[i][index];
-      });
-      resultados.push(ocorrencia);
+  try {
+    var sheet = SS.getSheetByName('Ocorrencia_acidentes');
+    if (!sheet) {
+      Logger.log('Aba Ocorrencia_acidentes não encontrada.');
+      return []; // Retorna array vazio em vez de responseJSON
     }
+    
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var resultados = [];
+    
+    for (var i = 1; i < data.length; i++) {
+      var fiscalCriador = String(data[i][4] || '').trim();
+      var finalizado = data[i][12];
+      
+      // Filtrar por fiscal e status não finalizado
+      if (fiscalCriador === String(apelido || '').trim() && 
+          (finalizado === false || finalizado === 'false' || finalizado === '')) {
+        
+        var ocorrencia = {};
+        headers.forEach(function(h, index) {
+          ocorrencia[h] = data[i][index];
+        });
+        resultados.push(ocorrencia);
+      }
+    }
+    
+    return resultados; // Retorna array direto, não wrapped em responseJSON
+    
+  } catch (e) {
+    Logger.log('Erro ao buscar ocorrências incompletas: ' + e.toString());
+    return []; // Retorna array vazio em caso de erro
   }
-  
-  return responseJSON({ success: true, data: resultados });
 }
 
 // Obter acidente completo por ID (incluindo bens, vítimas, testemunhas)
