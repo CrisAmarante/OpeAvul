@@ -216,3 +216,21 @@ textarea { resize: vertical; }
 .toast-feedback {
   animation: fadeInOut 2s ease forwards;
 }
+.acidente-item {
+  background: var(--card-bg);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.acidente-item .acoes {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+.btn-secundario.pequeno {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+}
+.status-finalizado { color: #28a745; font-weight: bold; }
+.status-andamento { color: #ffc107; font-weight: bold; }
