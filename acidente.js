@@ -439,7 +439,17 @@ async function salvarAbaParecer() {
   }
 }
 function mostrarFeedback(mensagem) {
-  alert(mensagem);
+  // Cria um toast temporário
+  const toast = document.createElement('div');
+  toast.textContent = mensagem;
+  toast.style.cssText = `
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #28a745; color: white; padding: 12px 24px; border-radius: 8px;
+    z-index: 10001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: fadeInOut 2s ease;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
 }
 
 // ====================================================================
