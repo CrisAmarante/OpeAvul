@@ -567,7 +567,6 @@ function montarObjetoAcidenteCompleto() {
 // SALVAR RASCUNHO (COMUNICAÇÃO COM BACKEND)
 // ====================================================================
 async function salvarNoBackend(payload, acao) {
-  // Usar POST para envio de dados grandes (evita limites de URL)
   const formData = new URLSearchParams();
   formData.append('acao', acao);
   formData.append('dados', JSON.stringify(payload));
@@ -577,9 +576,14 @@ async function salvarNoBackend(payload, acao) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData
   });
-  return await response.json();  // Assume que o backend retorna JSON
+  const texto = await response.text();
+  try {
+    return JSON.parse(texto);
+  } catch (e) {
+    // Se não for JSON, retorna um objeto com sucesso baseado no status HTTP
+    return { success: response.ok, raw: texto };
+  }
 }
-
 // ====================================================================
 // FINALIZAR ACIDENTE (SALVAR COMPLETO)
 // ====================================================================
