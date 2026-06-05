@@ -1041,3 +1041,189 @@ window.gravarParecer = gravarParecer;
 window.preencherDadosVeiculoTeste = preencherDadosVeiculoTeste;
 window.preencherDadosMotoristaTeste = preencherDadosMotoristaTeste;
 window.restaurarDadosSessionStorage = restaurarDadosSessionStorage;
+// ====================================================================
+// CONSULTA DE ACIDENTES (Etapa 3)
+// ====================================================================
+
+// Variáveis para controle da consulta
+let filtrosAtuais = {};
+
+// Função principal para carregar a lista de acidentes com filtros
+async function carregarListaAcidentes() {
+  const btnBuscar = getEl('btn-buscar-acidentes');
+  if (btnBuscar) btnBuscar.disabled = true;
+  mostrarFeedback('🔍 Buscando acidentes...', 1000);
+
+  // Coletar filtros
+  filtrosAtuais = {
+    prefixo: getEl('filtro-prefixo')?.value || null,
+    motorista: getEl('filtro-motorista')?.value || null,
+    dataInicio: getEl('filtro-data-inicio')?.value || null,
+    dataFim: getEl('filtro-data-fim')?.value || null,
+    status: getEl('filtro-status')?.value || null
+  };
+
+  // Adicionar papel e apelido do usuário para permissões
+  const params = new URLSearchParams();
+  params.append('acao', 'consultar_acidentes');
+  params.append('papel', window.currentUserRole || '');
+  params.append('apelido', localStorage.getItem('inspectorApelido') || '');
+  if (filtrosAtuais.prefixo) params.append('prefixo', filtrosAtuais.prefixo);
+  if (filtrosAtuais.motorista) params.append('motorista', filtrosAtuais.motorista);
+  if (filtrosAtuais.dataInicio) params.append('dataInicio', filtrosAtuais.dataInicio);
+  if (filtrosAtuais.dataFim) params.append('dataFim', filtrosAtuais.dataFim);
+  if (filtrosAtuais.status) params.append('status', filtrosAtuais.status);
+
+  try {
+    // Usar GET com JSONP (ou fetch) – optamos por fetch padrão (se CORS configurado)
+    const url = `${URL_PLANILHA}?${params.toString()}`;
+    const response = await fetch(url);
+    const acidentes = await response.json();
+    exibirListaAcidentes(acidentes);
+  } catch (error) {
+    console.error('Erro ao consultar acidentes:', error);
+    mostrarFeedback('❌ Erro ao buscar acidentes. Verifique a conexão.', 3000);
+  } finally {
+    if (btnBuscar) btnBuscar.disabled = false;
+  }
+}
+
+// Exibe os acidentes no modal de consulta
+function exibirListaAcidentes(acidentes) {
+  const container = getEl('lista-acidentes-resultados');
+  if (!container) return;
+
+  if (!acidentes || acidentes.length === 0) {
+    container.innerHTML = '<div class="empty-list">Nenhum acidente encontrado.</div>';
+    return;
+  }
+
+  let html = '<div class="acidentes-lista">';
+  acidentes.forEach(acc => {
+    const statusClass = acc.status === 'FINALIZADO' ? 'status-finalizado' : 'status-andamento';
+    const statusText = acc.status === 'FINALIZADO' ? '✅ Finalizado' : '⏳ Em andamento';
+    const podeEditar = (acc.status !== 'FINALIZADO' && (window.currentUserRole === 'ADMIN' || window.currentUserRole === 'SAF' || window.currentUserRole === 'ENCARREGADO' || acc.fiscal === localStorage.getItem('inspectorApelido')));
+
+    html += `
+      <div class="acidente-item">
+        <div><strong>ID:</strong> ${acc.id}</div>
+        <div><strong>Data:</strong> ${acc.dataAcidente || 'N/I'}</div>
+        <div><strong>Local:</strong> ${acc.local || 'N/I'}</div>
+        <div><strong>Prefixo:</strong> ${acc.prefixo || 'N/A'}</div>
+        <div><strong>Motorista:</strong> ${acc.motorista || 'N/A'}</div>
+        <div><strong>Status:</strong> <span class="${statusClass}">${statusText}</span></div>
+        <div class="acoes">
+          ${podeEditar ? `<button class="btn-secundario pequeno" onclick="editarAcidenteConsulta('${acc.id}')">✏️ Editar</button>` : ''}
+          <button class="btn-secundario pequeno" onclick="visualizarAcidenteConsulta('${acc.id}')">👁️ Visualizar</button>
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// Editar acidente (reabre modal com os dados)
+async function editarAcidenteConsulta(id) {
+  fecharModalConsulta(); // Fecha modal de consulta
+  await abrirModalEnvio(id); // Abre modal de edição (carrega dados)
+}
+
+// Visualizar acidente (abre modal de detalhes somente leitura)
+async function visualizarAcidenteConsulta(id) {
+  try {
+    const url = `${URL_PLANILHA}?acao=obter_acidente&id=${id}&_=${Date.now()}`;
+    const response = await fetch(url);
+    const acidente = await response.json();
+    if (!acidente) {
+      alert('Acidente não encontrado.');
+      return;
+    }
+    exibirDetalheAcidente(acidente);
+  } catch (error) {
+    console.error(error);
+    alert('Erro ao carregar detalhes do acidente.');
+  }
+}
+
+// Exibe modal de detalhes com todas as informações
+function exibirDetalheAcidente(acidente) {
+  const modalDetalhe = getEl('modal-detalhe-acidente');
+  const conteudo = getEl('detalhe-acidente-conteudo');
+  if (!modalDetalhe || !conteudo) return;
+
+  // Montar HTML com os dados completos
+  let html = `
+    <h3>📋 Cadastro</h3>
+    <p><strong>Tipo:</strong> ${acidente.cadastro?.tipoAcidente || 'N/I'}</p>
+    <p><strong>Data/Hora:</strong> ${acidente.dataAcidente || ''} ${acidente.horaAcidente || ''}</p>
+    <p><strong>Local:</strong> ${acidente.local || ''}</p>
+    <p><strong>Ônibus:</strong> ${acidente.prefixo || ''} - ${acidente.cadastro?.placa || ''}</p>
+    <p><strong>Motorista:</strong> ${acidente.cadastro?.apelido || ''} (${acidente.motoristaChapa || ''})</p>
+    <p><strong>Histórico:</strong> ${acidente.descricaoAnalise || 'N/I'}</p>
+    <hr>
+    <h3>🔍 Análise</h3>
+    <p><strong>Situação:</strong> ${acidente.analise?.situacaoOnibus || 'N/I'}</p>
+    <p><strong>Clima:</strong> ${acidente.analise?.clima || 'N/I'}</p>
+    <p><strong>Danos:</strong> ${acidente.analise?.danosResultantes?.join(', ') || 'N/I'}</p>
+  `;
+  if (acidente.bens && acidente.bens.length) {
+    html += `<h3>🚗 Bens Avariados</h3><ul>${acidente.bens.map(b => `<li>${b.tipoBem || b.tipo} - Placa: ${b.placa}</li>`).join('')}</ul>`;
+  }
+  if (acidente.vitimas && acidente.vitimas.length) {
+    html += `<h3>🚑 Vítimas</h3><ul>${acidente.vitimas.map(v => `<li>${v.nome} - ${v.lesoes || 'sem lesões'}</li>`).join('')}</ul>`;
+  }
+  if (acidente.testemunhas && acidente.testemunhas.length) {
+    html += `<h3>🗣️ Testemunhas</h3><ul>${acidente.testemunhas.map(t => `<li>${t.nome}</li>`).join('')}</ul>`;
+  }
+  html += `<hr><h3>📝 Parecer</h3><p><strong>Inspetor:</strong> ${acidente.parecer?.inspetor || ''}</p>
+           <p><strong>Visão:</strong> ${acidente.parecer?.visao || ''}</p>
+           <p><strong>Culpa:</strong> ${acidente.parecer?.atribuicaoCulpa || ''}</p>`;
+
+  conteudo.innerHTML = html;
+  modalDetalhe.style.display = 'flex';
+  modalDetalhe.classList.add('is-open');
+}
+
+function fecharModalDetalhe() {
+  const modal = getEl('modal-detalhe-acidente');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('is-open');
+  }
+}
+
+function fecharModalConsulta() {
+  const modal = getEl('modal-consulta-acidentes');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.remove('is-open');
+  }
+}
+
+// Inicializar eventos do modal de consulta (chamar no main.js)
+function initConsultaAcidentes() {
+  const btnConsultar = getEl('btn-consultar-acidentes');
+  if (btnConsultar) {
+    btnConsultar.addEventListener('click', () => {
+      const modalConsulta = getEl('modal-consulta-acidentes');
+      if (modalConsulta) {
+        modalConsulta.style.display = 'flex';
+        modalConsulta.classList.add('is-open');
+        carregarListaAcidentes(); // Carrega lista inicial vazia ou com filtros padrão
+      }
+    });
+  }
+  const btnBuscar = getEl('btn-buscar-acidentes');
+  if (btnBuscar) {
+    btnBuscar.addEventListener('click', carregarListaAcidentes);
+  }
+}
+
+// Exportar funções para escopo global
+window.carregarListaAcidentes = carregarListaAcidentes;
+window.editarAcidenteConsulta = editarAcidenteConsulta;
+window.visualizarAcidenteConsulta = visualizarAcidenteConsulta;
+window.fecharModalDetalhe = fecharModalDetalhe;
+window.fecharModalConsulta = fecharModalConsulta;
+window.initConsultaAcidentes = initConsultaAcidentes;
