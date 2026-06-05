@@ -6,9 +6,6 @@
 // ====================================================================
 // CONFIGURAÇÕES GLOBAIS
 // ====================================================================
-const DATA_INICIO_BANNER = new Date('2026-07-10T00:00:00');
-const DATA_FIM_BANNER    = new Date('2026-07-21T00:01:00');
-
 // NOTA: A variável currentUserRole é definida em auth.js (global window.currentUserRole)
 
 // ====================================================================
@@ -41,10 +38,6 @@ function initEventListeners() {
     loginForm.removeEventListener('submit', login);
     loginForm.addEventListener('submit', login);
   }
-
-  // Botão fechar banner
-  const btnFecharBanner = getEl('btn-fechar-banner');
-  if (btnFecharBanner) btnFecharBanner.addEventListener('click', fecharBanner);
 
   // Botão principal: Relatório de Acidentes
   const btnAcidente = getEl('btn-envio-informacoes');
@@ -95,22 +88,6 @@ function registerServiceWorker() {
 }
 
 // ====================================================================
-// BANNER TEMPORÁRIO
-// ====================================================================
-function fecharBanner() {
-  const b = getEl('aviso-temporario');
-  if (b) b.style.display = 'none';
-}
-
-function mostrarBannerAviso() {
-  const agora = new Date();
-  const banner = getEl('aviso-temporario');
-  if (banner) {
-    banner.style.display = (agora >= DATA_INICIO_BANNER && agora < DATA_FIM_BANNER) ? 'flex' : 'none';
-  }
-}
-
-// ====================================================================
 // INICIALIZAÇÃO PRINCIPAL
 // ====================================================================
 async function inicializar() {
@@ -119,44 +96,27 @@ async function inicializar() {
   initTheme();
   registerServiceWorker();
 
-  // Carrega os dados dos inspetores (necessário para validar login)
-  // NOTA: refreshInspetores foi removido porque não existe mais no api.js
-  // Se você ainda usa INSPETORES em algum lugar, comente ou remova esta linha.
-  // await refreshInspetores();
-
   // Verifica se já existe usuário logado
   checkLoginStatus();
 
-  // Mostra banner se aplicável
-  mostrarBannerAviso();
-
-  // Carregamento de terminais removido (não utilizado no novo sistema)
-  // Se precisar deles, descomente as linhas abaixo:
-  // await carregarTerminais().then(() => preencherSelectTerminais());
+  // Inicializa a funcionalidade de consulta de acidentes (botão e modais)
+  if (typeof initConsultaAcidentes === 'function') {
+    initConsultaAcidentes();
+  }
 
   // Eventos de retorno à página (pageshow / visibilitychange) recarregam estado
   window.addEventListener('pageshow', async (e) => {
     if (e.persisted) {
       checkLoginStatus();
-      // Se houver necessidade de recarregar terminais, descomente:
-      // await carregarTerminais(true);
-      // preencherSelectTerminais();
     }
   });
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
       checkLoginStatus();
-      // await carregarTerminais(true);
-      // preencherSelectTerminais();
     }
   });
 }
 
 // Inicializa quando o DOM estiver pronto
 window.addEventListener('DOMContentLoaded', inicializar);
-
-// ====================================================================
-// FUNÇÕES AUXILIARES EXPORTADAS (caso necessário para outros módulos)
-// ====================================================================
-window.fecharBanner = fecharBanner;
