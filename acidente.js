@@ -349,36 +349,54 @@ function salvarRascunhoLocal() {
 // SALVAR ABAS INDIVIDUAIS
 // ====================================================================
 // ====================================================================
-// SALVAR ABA CADASTRO (envia ao backend + local)
+// DEBOUNCE PARA EVITAR SALVAMENTOS EXCESSIVOS
 // ====================================================================
-async function salvarAbaCadastro() {
-  coletarDadosCadastro();
-  // Monta objeto completo com os dados atuais
-  const dadosCompletos = montarObjetoAcidenteCompleto();
+const salvarDebounce = {};
+function debounceSalvarAba(abaId, func) {
+  if (salvarDebounce[abaId]) clearTimeout(salvarDebounce[abaId]);
+  salvarDebounce[abaId] = setTimeout(() => {
+    delete salvarDebounce[abaId];
+    func();
+  }, 500);
+}
+// ====================================================================
+// SALVAR ABA CADASTRO (COM DEBOUNCE E BACKGROUND)
+// ====================================================================
+async function _salvarAbaCadastro() {
+  const payload = montarObjetoAcidenteCompleto(true); // sem fotos
   try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Cadastro salvos no servidor!');
+    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
   } catch (error) {
-    console.error('Erro ao salvar no backend:', error);
-    // Fallback: salvar apenas localmente
+    console.error(error);
     salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente. Reconecte e salve novamente.');
+    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
   }
+}
+
+function salvarAbaCadastro() {
+  debounceSalvarAba('cadastro', _salvarAbaCadastro);
+  // Feedback visual imediato (opcional)
+  mostrarFeedback('💾 Salvando aba Cadastro...', 1000);
 }
 
 // ====================================================================
 // SALVAR ABA ANÁLISE
 // ====================================================================
 async function salvarAbaAnalise() {
-  coletarDadosAnalise();
-  const dadosCompletos = montarObjetoAcidenteCompleto();
+  const payload = montarObjetoAcidenteCompleto(true); // sem fotos
   try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Análise salvos no servidor!');
+    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
   } catch (error) {
+    console.error(error);
     salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
   }
+}
+
+function salvarAbaAnalise() {
+  debounceSalvarAba('cadastro', _salvarAbaAnalise);
+  // Feedback visual imediato (opcional)
+  mostrarFeedback('💾 Salvando aba Analise...', 1000);
 }
 
 // ====================================================================
@@ -400,43 +418,60 @@ async function salvarAbaBens() {
 // SALVAR ABA VÍTIMAS
 // ====================================================================
 async function salvarAbaVitimas() {
-  const dadosCompletos = montarObjetoAcidenteCompleto();
+   const payload = montarObjetoAcidenteCompleto(true); // sem fotos
   try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Vítimas salvos no servidor!');
+    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
   } catch (error) {
+    console.error(error);
     salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
   }
+}
+
+function salvarAbaVitimas() {
+  debounceSalvarAba('cadastro', _salvarAbaVitimas);
+  // Feedback visual imediato (opcional)
+  mostrarFeedback('💾 Salvando aba Vitimas...', 1000);
 }
 
 // ====================================================================
 // SALVAR ABA TESTEMUNHAS
 // ====================================================================
 async function salvarAbaTestemunhas() {
-  const dadosCompletos = montarObjetoAcidenteCompleto();
+ const payload = montarObjetoAcidenteCompleto(true); // sem fotos
   try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Testemunhas salvos no servidor!');
+    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
   } catch (error) {
+    console.error(error);
     salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
   }
+}
+
+function salvarAbaTestemunhas() {
+  debounceSalvarAba('cadastro', _salvarAbaTestemunhas);
+  // Feedback visual imediato (opcional)
+  mostrarFeedback('💾 Salvando aba Testemunhas...', 1000);
 }
 
 // ====================================================================
 // SALVAR ABA PARECER
 // ====================================================================
 async function salvarAbaParecer() {
-  coletarDadosParecer();
-  const dadosCompletos = montarObjetoAcidenteCompleto();
+ const payload = montarObjetoAcidenteCompleto(true); // sem fotos
   try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Parecer salvos no servidor!');
+    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
   } catch (error) {
+    console.error(error);
     salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
   }
+}
+
+function salvarAbaParecer() {
+  debounceSalvarAba('cadastro', _salvarAbaParecer);
+  // Feedback visual imediato (opcional)
+  mostrarFeedback('💾 Salvando aba Parecer...', 1000);
 }
 function mostrarFeedback(mensagem) {
   // Cria um toast temporário
@@ -530,15 +565,13 @@ function coletarDadosParecer() {
 }
 
 // ====================================================================
-// MONTAR OBJETO COMPLETO DO ACIDENTE (ALINHADO COM O BACKEND)
+// MONTAR OBJETO COMPLETO (SEM FOTOS NO PAYLOAD PRINCIPAL – SERÃO ENVIADAS SEPARADAMENTE)
 // ====================================================================
-function montarObjetoAcidenteCompleto() {
-  // Coletar os dados atualizados das abas
+function montarObjetoAcidenteCompleto(semFotos = true) {
   coletarDadosCadastro();
   coletarDadosAnalise();
   coletarDadosParecer();
 
-  // Construir o campo "local" a partir de logradouro, bairro, cidade
   const enderecoCompleto = [
     dadosCadastro.logradouro,
     dadosCadastro.bairro,
@@ -546,37 +579,40 @@ function montarObjetoAcidenteCompleto() {
     dadosCadastro.cep
   ].filter(Boolean).join(', ');
 
-  // Objeto conforme esperado pelo backend (campos principais)
-  const payloadBackend = {
+  const payload = {
     id: acidenteAtualId,
     status: editMode ? originalStatus : 'EM_ANDAMENTO',
     fiscal: localStorage.getItem('inspectorApelido'),
-    finalizado: (originalStatus === 'FINALIZADO') ? true : false,
-    // Campos obrigatórios do backend original
+    finalizado: (originalStatus === 'FINALIZADO'),
     dataAcidente: dadosCadastro.data || '',
     horaAcidente: dadosCadastro.hora || '',
     local: enderecoCompleto,
-    descricaoAnalise: dadosCadastro.historico || '',  // histórico do motorista
+    descricaoAnalise: dadosCadastro.historico || '',
     prefixo: dadosCadastro.prefixo || '',
     motoristaChapa: dadosCadastro.chapa || '',
-    // Dados completos (para não perder nenhuma informação)
     cadastro: dadosCadastro,
     analise: dadosAnalise,
     parecer: dadosParecer,
     bens: bensArray,
     vitimas: vitimasArray,
-    testemunhas: testemunhasArray,
-    fotosColetivo: fotosColetivoArray,
-    fotosLocal: fotosLocalArray
+    testemunhas: testemunhasArray
   };
 
-  return payloadBackend;
+  // Se solicitado, remover fotos (base64) do payload principal para evitar lentidão
+  if (semFotos) {
+    if (payload.cadastro) delete payload.cadastro.fotoCNH;
+    // Fotos de bens/vítimas também serão tratadas depois
+    payload.bens = payload.bens?.map(b => { const { fotos, ...rest } = b; return rest; });
+    payload.vitimas = payload.vitimas?.map(v => { const { fotos, ...rest } = v; return rest; });
+  }
+
+  return payload;
 }
 
 // ====================================================================
-// SALVAR RASCUNHO (COMUNICAÇÃO COM BACKEND)
+// SALVAR NO BACKEND (COM FEEDBACK VISUAL)
 // ====================================================================
-async function salvarNoBackend(payload, acao) {
+async function salvarNoBackend(payload, acao, exibirToast = true) {
   const formData = new URLSearchParams();
   formData.append('acao', acao);
   formData.append('dados', JSON.stringify(payload));
@@ -587,13 +623,19 @@ async function salvarNoBackend(payload, acao) {
     body: formData
   });
   const texto = await response.text();
+  let resultado;
   try {
-    return JSON.parse(texto);
+    resultado = JSON.parse(texto);
   } catch (e) {
-    // Se não for JSON, retorna um objeto com sucesso baseado no status HTTP
-    return { success: response.ok, raw: texto };
+    resultado = { success: response.ok, raw: texto };
   }
+  if (exibirToast) {
+    if (resultado.success) mostrarFeedback(`✅ ${acao} realizado!`);
+    else mostrarFeedback(`❌ Erro: ${resultado.erro || 'Falha na comunicação'}`);
+  }
+  return resultado;
 }
+
 // ====================================================================
 // FINALIZAR ACIDENTE (SALVAR COMPLETO)
 // ====================================================================
