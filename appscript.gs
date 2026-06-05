@@ -113,26 +113,32 @@ function doPost(e) {
   
   try {
     var data = JSON.parse(e.postData.contents);
-    var action = data.action;
+    var action = data.acao || data.action; // Suporta ambos os formatos
     
     if (action === 'login') {
       return handleLogin(data);
-    } else if (action === 'salvarOcorrencia') {
-      return handleSalvarOcorrencia(data);
-    } else if (action === 'buscarVeiculo') {
+    } else if (action === 'salvarOcorrencia' || action === 'salvar_rascunho_acidente') {
+      return handleSalvarRascunhoAcidente(data);
+    } else if (action === 'finalizar_acidente') {
+      return handleFinalizarAcidente(data);
+    } else if (action === 'obter_acidente') {
+      return handleObterAcidente(data.id);
+    } else if (action === 'buscar_veiculo') {
       return handleBuscarVeiculo(data.prefixo);
-    } else if (action === 'buscarMotorista') {
-      return handleBuscarMotorista(data.chapa);
-    } else if (action === 'buscarLinha') {
-      return handleBuscarLinha(data.id); // ou numero, dependendo da busca
+    } else if (action === 'buscar_operador' || action === 'buscarMotorista') {
+      return handleBuscarMotorista(data.chapa || data.termo);
+    } else if (action === 'buscar_linhas') {
+      return handleBuscarLinhas(data.termo);
     } else if (action === 'logAcesso') {
       return handleLogAcesso(data);
+    } else if (action === 'buscar_ocorrencias_incompletas') {
+      return handleBuscarOcorrenciasIncompletas(data.apelido);
     }
     
-    return responseJSON({ success: false, message: 'Ação desconhecida' });
+    return responseJSON({ success: false, erro: 'Ação desconhecida: ' + action });
     
   } catch (error) {
-    return responseJSON({ success: false, message: 'Erro no servidor: ' + error.toString() });
+    return responseJSON({ success: false, erro: 'Erro no servidor: ' + error.toString() });
   } finally {
     lock.releaseLock();
   }
@@ -182,95 +188,189 @@ function handleLogin(data) {
   }
 }
 
-function handleSalvarOcorrencia(data) {
+function handleSalvarRascunhoAcidente(data) {
   try {
     var idAcidente = data.id || Utilities.getUuid();
     var now = new Date();
     
-    // 1. Salvar na aba Ocorrencia_acidentes (Cabeçalho + Análise)
+    // Verificar se já existe para atualizar ou criar novo
     var sheetOcorrencia = SS.getSheetByName('Ocorrencia_acidentes');
     if (!sheetOcorrencia) throw new Error('Aba Ocorrencia_acidentes não existe');
     
-    // Dados principais e de análise
-    var rowDataOcorrencia = [
+    // Buscar se já existe este ID
+    var existente = encontrarLinhaPorId(sheetOcorrencia, idAcidente);
+    var rowDataOcorrencia;
+    
+    // Montar dados principais da ocorrência
+    var enderecoCompleto = montarEnderecoCompleto(data.cadastro);
+    
+    rowDataOcorrencia = [
       idAcidente,
-      data.status || 'Em Aberto',
-      now, // DataCriacao
+      data.status || 'EM_ANDAMENTO',
+      existente ? null : now, // DataCriacao (só se novo)
       now, // DataAtualizacao
-      data.fiscalCriador,
-      data.dataAcidente,
-      data.horaAcidente,
-      data.local,
-      data.descricaoAnalise || '', // Campo de análise de texto
-      JSON.stringify(data.anexosPrincipais || []), // Array de fotos da análise
-      data.prefixo,
-      data.motoristaChapa,
+      data.fiscal || '',
+      data.cadastro?.data || data.dataAcidente || '',
+      data.cadastro?.hora || data.horaAcidente || '',
+      enderecoCompleto,
+      data.cadastro?.historico || data.descricaoAnalise || '',
+      JSON.stringify(data.anexosPrincipais || []),
+      data.cadastro?.prefixo || data.prefixo || '',
+      data.cadastro?.chapa || data.motoristaChapa || '',
       data.finalizado || false
     ];
     
-    sheetOcorrencia.appendRow(rowDataOcorrencia);
-    
-    // 2. Salvar Bens Avariados
-    if (data.bensAvariados && data.bensAvariados.length > 0) {
-      var sheetBens = SS.getSheetByName('BensAvariados');
-      if (!sheetBens) throw new Error('Aba BensAvariados não existe');
-      
-      data.bensAvariados.forEach(function(bem) {
-        sheetBens.appendRow([
-          idAcidente,
-          bem.tipoBem,
-          bem.placa,
-          bem.ano,
-          bem.cor,
-          bem.modelo,
-          bem.renavam,
-          bem.proprietario,
-          bem.telefone,
-          bem.danos,
-          JSON.stringify(bem.anexos || [])
-        ]);
-      });
+    if (existente) {
+      // Atualizar linha existente
+      sheetOcorrencia.getRange(existente.row, 1, 1, rowDataOcorrencia.length).setValues([rowDataOcorrencia]);
+      Logger.log('Acidente atualizado: ' + idAcidente);
+    } else {
+      // Criar nova linha
+      sheetOcorrencia.appendRow(rowDataOcorrencia);
+      Logger.log('Acidente criado: ' + idAcidente);
     }
     
-    // 3. Salvar Vítimas
-    if (data.vitimas && data.vitimas.length > 0) {
-      var sheetVitimas = SS.getSheetByName('Vitimas');
-      if (!sheetVitimas) throw new Error('Aba Vitimas não existe');
-      
-      data.vitimas.forEach(function(vitima) {
-        sheetVitimas.appendRow([
-          idAcidente,
-          vitima.nome,
-          vitima.documento,
-          vitima.contato,
-          vitima.lesoes,
-          vitima.atendimento,
-          JSON.stringify(vitima.fotos || [])
-        ]);
-      });
-    }
+    // Salvar/Atualizar Bens Avariados
+    salvarBensAvariados(idAcidente, data.bens || [], existente);
     
-    // 4. Salvar Testemunhas
-    if (data.testemunhas && data.testemunhas.length > 0) {
-      var sheetTestemunhas = SS.getSheetByName('Testemunhas');
-      if (!sheetTestemunhas) throw new Error('Aba Testemunhas não existe');
-      
-      data.testemunhas.forEach(function(test) {
-        sheetTestemunhas.appendRow([
-          idAcidente,
-          test.nome,
-          test.documento,
-          test.contato,
-          test.relato
-        ]);
-      });
-    }
+    // Salvar/Atualizar Vítimas
+    salvarVitimas(idAcidente, data.vitimas || [], existente);
     
-    return responseJSON({ success: true, id: idAcidente, message: 'Ocorrência salva com sucesso!' });
+    // Salvar/Atualizar Testemunhas
+    salvarTestemunhas(idAcidente, data.testemunhas || [], existente);
+    
+    return responseJSON({ success: true, id: idAcidente, message: 'Rascunho salvo com sucesso!' });
     
   } catch (e) {
-    return responseJSON({ success: false, message: 'Erro ao salvar: ' + e.toString() });
+    Logger.log('Erro ao salvar rascunho: ' + e.toString());
+    return responseJSON({ success: false, erro: 'Erro ao salvar: ' + e.toString() });
   }
+}
+
+// Função auxiliar para montar endereço completo
+function montarEnderecoCompleto(cadastro) {
+  if (!cadastro) return '';
+  var partes = [];
+  if (cadastro.logradouro) partes.push(cadastro.logradouro);
+  if (cadastro.bairro) partes.push(cadastro.bairro);
+  if (cadastro.cidade) partes.push(cadastro.cidade);
+  if (cadastro.cep) partes.push(cadastro.cep);
+  return partes.join(', ');
+}
+
+// Salvar Bens Avariados (deleta antigos e insere novos)
+function salvarBensAvariados(idAcidente, bensArray, existente) {
+  var sheetBens = SS.getSheetByName('BensAvariados');
+  if (!sheetBens) return;
+  
+  // Remover bens antigos deste acidente
+  if (existente) {
+    removerLinhasPorIdAcidente(sheetBens, idAcidente);
+  }
+  
+  // Inserir novos bens
+  if (bensArray && bensArray.length > 0) {
+    bensArray.forEach(function(bem) {
+      var parteAvariadaStr = Array.isArray(bem.parteAvariada) ? bem.parteAvariada.join('; ') : (bem.parteAvariada || '');
+      var danosResultantesStr = Array.isArray(bem.danosResultantes) ? bem.danosResultantes.join('; ') : (bem.danos || '');
+      
+      sheetBens.appendRow([
+        idAcidente,
+        bem.tipoBem || bem.tipo || '',
+        bem.placa || '',
+        bem.ano || '',
+        bem.cor || '',
+        bem.modelo || '',
+        bem.renavan || bem.renavam || '',
+        bem.proprietario || '',
+        bem.telefone || '',
+        parteAvariadaStr,
+        danosResultantesStr,
+        JSON.stringify(bem.fotos || bem.anexos || [])
+      ]);
+    });
+  }
+}
+
+// Salvar Vítimas (deleta antigas e insere novas)
+function salvarVitimas(idAcidente, vitimasArray, existente) {
+  var sheetVitimas = SS.getSheetByName('Vitimas');
+  if (!sheetVitimas) return;
+  
+  // Remover vítimas antigas deste acidente
+  if (existente) {
+    removerLinhasPorIdAcidente(sheetVitimas, idAcidente);
+  }
+  
+  // Inserir novas vítimas
+  if (vitimasArray && vitimasArray.length > 0) {
+    vitimasArray.forEach(function(vitima) {
+      var lesõesStr = Array.isArray(vitima.lesoes) ? vitima.lesoes.join('; ') : (vitima.lesoes || '');
+      var atendimentoStr = Array.isArray(vitima.atendimento) ? vitima.atendimento.join('; ') : (vitima.atendimento_vitima || '');
+      
+      sheetVitimas.appendRow([
+        idAcidente,
+        vitima.nome || '',
+        vitima.documento || vitima.documento_vitima || '',
+        vitima.contato || vitima.contato_vitima || '',
+        lesõesStr,
+        atendimentoStr,
+        JSON.stringify(vitima.fotos || [])
+      ]);
+    });
+  }
+}
+
+// Salvar Testemunhas (deleta antigas e insere novas)
+function salvarTestemunhas(idAcidente, testemunhasArray, existente) {
+  var sheetTestemunhas = SS.getSheetByName('Testemunhas');
+  if (!sheetTestemunhas) return;
+  
+  // Remover testemunhas antigas deste acidente
+  if (existente) {
+    removerLinhasPorIdAcidente(sheetTestemunhas, idAcidente);
+  }
+  
+  // Inserir novas testemunhas
+  if (testemunhasArray && testemunhasArray.length > 0) {
+    testemunhasArray.forEach(function(test) {
+      sheetTestemunhas.appendRow([
+        idAcidente,
+        test.nome || '',
+        test.documento || '',
+        test.contato || '',
+        test.relato || ''
+      ]);
+    });
+  }
+}
+
+// Encontrar linha por ID na planilha
+function encontrarLinhaPorId(sheet, id) {
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === String(id).trim()) {
+      return { row: i + 1, data: data[i] };
+    }
+  }
+  return null;
+}
+
+// Remover linhas por ID do acidente
+function removerLinhasPorIdAcidente(sheet, idAcidente) {
+  var data = sheet.getDataRange().getValues();
+  var rowsToDelete = [];
+  
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]).trim() === String(idAcidente).trim()) {
+      rowsToDelete.push(i + 1);
+    }
+  }
+  
+  // Deletar de baixo para cima para não deslocar índices
+  rowsToDelete.forEach(function(rowNum) {
+    sheet.deleteRow(rowNum);
+  });
 }
 
 function handleBuscarVeiculo(prefixo) {
@@ -335,6 +435,197 @@ function handleBuscarLinha(idOuNumero) {
   }
   
   return responseJSON({ success: false, message: 'Linha não encontrada' });
+}
+
+// Buscar múltiplas linhas por termo parcial (para autocomplete)
+function handleBuscarLinhas(termo) {
+  var sheet = SS.getSheetByName('Cadastro_Linhas');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Linhas não encontrada' });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var resultados = [];
+  var termoUpper = String(termo || '').toUpperCase();
+  
+  for (var i = 1; i < data.length; i++) {
+    var codigoLinha = String(data[i][0] || '').toUpperCase();
+    var numeroLinha = String(data[i][2] || '').toUpperCase();
+    var descricaoLinha = String(data[i][1] || '').toUpperCase();
+    
+    // Busca parcial em código, número ou descrição
+    if (termoUpper === '' || 
+        codigoLinha.indexOf(termoUpper) >= 0 || 
+        numeroLinha.indexOf(termoUpper) >= 0 ||
+        descricaoLinha.indexOf(termoUpper) >= 0) {
+      
+      var linha = {};
+      headers.forEach(function(h, index) {
+        linha[h] = data[i][index];
+      });
+      resultados.push(linha);
+      
+      // Limitar a 50 resultados para performance
+      if (resultados.length >= 50) break;
+    }
+  }
+  
+  return responseJSON({ success: true, data: resultados });
+}
+
+// Buscar ocorrências incompletas de um fiscal
+function handleBuscarOcorrenciasIncompletas(apelido) {
+  var sheet = SS.getSheetByName('Ocorrencia_acidentes');
+  if (!sheet) return responseJSON({ success: false, message: 'Aba Ocorrencia_acidentes não encontrada' });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var resultados = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    var fiscalCriador = String(data[i][4] || '').trim();
+    var finalizado = data[i][12];
+    
+    // Filtrar por fiscal e status não finalizado
+    if (fiscalCriador === String(apelido || '').trim() && 
+        (finalizado === false || finalizado === 'false' || finalizado === '')) {
+      
+      var ocorrencia = {};
+      headers.forEach(function(h, index) {
+        ocorrencia[h] = data[i][index];
+      });
+      resultados.push(ocorrencia);
+    }
+  }
+  
+  return responseJSON({ success: true, data: resultados });
+}
+
+// Obter acidente completo por ID (incluindo bens, vítimas, testemunhas)
+function handleObterAcidente(id) {
+  try {
+    var sheetOcorrencia = SS.getSheetByName('Ocorrencia_acidentes');
+    if (!sheetOcorrencia) return responseJSON({ success: false, message: 'Aba Ocorrencia_acidentes não encontrada' });
+    
+    var ocorrenciaData = encontrarLinhaPorId(sheetOcorrencia, id);
+    if (!ocorrenciaData) return responseJSON({ success: false, message: 'Acidente não encontrado' });
+    
+    var headers = sheetOcorrencia.getRange(1, 1, 1, sheetOcorrencia.getLastColumn()).getValues()[0];
+    var acidente = {};
+    headers.forEach(function(h, index) {
+      acidente[h] = ocorrenciaData.data[index];
+    });
+    
+    // Mapear para formato esperado pelo frontend
+    var resultado = {
+      id: acidente['ID'] || id,
+      status: acidente['Status'] || 'EM_ANDAMENTO',
+      fiscal: acidente['FiscalCriador'] || '',
+      dataAcidente: acidente['DataAcidente'] || '',
+      horaAcidente: acidente['HoraAcidente'] || '',
+      local: acidente['Local'] || '',
+      prefixo: acidente['Prefixo'] || '',
+      motoristaChapa: acidente['MotoristaChapa'] || '',
+      finalizado: acidente['Finalizado'] || false,
+      anexosPrincipais: parseJSON(acidente['AnexosPrincipais']),
+      cadastro: {},
+      analise: {},
+      parecer: {},
+      bens: [],
+      vitimas: [],
+      testemunhas: []
+    };
+    
+    // Preencher dados do cadastro a partir da ocorrência principal
+    resultado.cadastro = {
+      data: resultado.dataAcidente,
+      hora: resultado.horaAcidente,
+      prefixo: resultado.prefixo,
+      chapa: resultado.motoristaChapa,
+      historico: acidente['DescricaoAnalise'] || ''
+      // Outros campos serão preenchidos quando expandidos no frontend
+    };
+    
+    // Buscar bens avariados
+    var sheetBens = SS.getSheetByName('BensAvariados');
+    if (sheetBens) {
+      resultado.bens = buscarItensPorIdAcidente(sheetBens, id, [
+        'ID_Acidente', 'TipoBem', 'Placa', 'Ano', 'Cor', 'Modelo', 'Renavam', 
+        'Proprietario', 'Telefone', 'Danos', 'Anexos_Array'
+      ]);
+    }
+    
+    // Buscar vítimas
+    var sheetVitimas = SS.getSheetByName('Vitimas');
+    if (sheetVitimas) {
+      resultado.vitimas = buscarItensPorIdAcidente(sheetVitimas, id, [
+        'ID_Acidente', 'Nome', 'Documento_Vitima', 'Contato_Vitima', 'Lesoes', 
+        'Atendimento_vitima', 'Fotos_Array'
+      ]);
+    }
+    
+    // Buscar testemunhas
+    var sheetTestemunhas = SS.getSheetByName('Testemunhas');
+    if (sheetTestemunhas) {
+      resultado.testemunhas = buscarItensPorIdAcidente(sheetTestemunhas, id, [
+        'ID_Acidente', 'Nome', 'Documento', 'Contato', 'Relato'
+      ]);
+    }
+    
+    return responseJSON({ success: true, data: resultado });
+    
+  } catch (e) {
+    Logger.log('Erro ao obter acidente: ' + e.toString());
+    return responseJSON({ success: false, erro: 'Erro ao obter acidente: ' + e.toString() });
+  }
+}
+
+// Buscar itens (bens/vítimas/testemunhas) por ID do acidente
+function buscarItensPorIdAcidente(sheet, idAcidente, headers) {
+  var data = sheet.getDataRange().getValues();
+  var resultados = [];
+  
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim() === String(idAcidente).trim()) {
+      var item = {};
+      for (var j = 0; j < headers.length && j < data[i].length; j++) {
+        item[headers[j]] = data[i][j];
+      }
+      resultados.push(item);
+    }
+  }
+  
+  return resultados;
+}
+
+// Finalizar acidente (marcar como finalizado na planilha)
+function handleFinalizarAcidente(data) {
+  try {
+    var sheetOcorrencia = SS.getSheetByName('Ocorrencia_acidentes');
+    if (!sheetOcorrencia) return responseJSON({ success: false, message: 'Aba Ocorrencia_acidentes não encontrada' });
+    
+    var existente = encontrarLinhaPorId(sheetOcorrencia, data.id);
+    if (!existente) return responseJSON({ success: false, message: 'Acidente não encontrado' });
+    
+    // Atualizar coluna Finalizado (coluna 13) e Status (coluna 2)
+    sheetOcorrencia.getRange(existente.row, 2).setValue('FINALIZADO');
+    sheetOcorrencia.getRange(existente.row, 13).setValue(true);
+    sheetOcorrencia.getRange(existente.row, 4).setValue(new Date()); // DataAtualizacao
+    
+    return responseJSON({ success: true, message: 'Acidente finalizado com sucesso!' });
+    
+  } catch (e) {
+    Logger.log('Erro ao finalizar acidente: ' + e.toString());
+    return responseJSON({ success: false, erro: 'Erro ao finalizar: ' + e.toString() });
+  }
+}
+
+// Utilitário para parsear JSON com tratamento de erro
+function parseJSON(str) {
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return [];
+  }
 }
 
 function handleLogAcesso(data) {

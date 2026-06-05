@@ -1,1 +1,1 @@
-(api.js and auth.js are source files, and there are no build artifacts, dependencies, or temp files in the changes)
+Nothing should be ignored based on the provided file changes. The added and modified files (ETAPA_1_INSTRUCOES.md, acidente.js, appscript.gs) are all source/config files without any build artifacts, dependencies, or temporary files that need to be ignored.
