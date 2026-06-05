@@ -1,7 +1,11 @@
 // ====================================================================
-// acidente.js - Módulo de Relatório de Acidentes (VERSÃO OTIMIZADA)
-// 
+// acidente.js - Módulo de Relatório de Acidentes (Versão Final com Upload de Fotos)
 // ====================================================================
+// Funcionalidades: gestão de acidentes (cadastro, análise, bens, vítimas,
+// testemunhas, parecer), compressão de imagens, upload para Google Drive,
+// persistência de links, debounce, toasts, autocomplete, etc.
+// ====================================================================
+
 // ====================================================================
 // VARIÁVEIS GLOBAIS DO MÓDULO
 // ====================================================================
@@ -17,12 +21,16 @@ let vitimasArray = [];
 let testemunhasArray = [];
 let dadosParecer = {};
 
-// Anexos
-let fotosColetivoArray = [];
-let fotosLocalArray = [];
-let fotoCNHBase64 = null;
+// Anexos (temporários em base64 comprimido)
+let fotosColetivoTemp = [];
+let fotosLocalTemp = [];
+let fotoCNHTemp = null;
 
-// Contadores para veículos/vítimas/testemunhas
+// Links permanentes (após upload)
+let fotosColetivoLinks = [];
+let fotosLocalLinks = [];
+
+// Contadores
 let veiculoCounter = 0;
 let vitimaCounter = 0;
 let testemunhaCounter = 0;
@@ -30,84 +38,33 @@ let testemunhaCounter = 0;
 // Autoridades presentes
 let autoridadesPresentes = {};
 
+// Debounce timers
+const salvarDebounce = {};
+
 // ====================================================================
-// INICIALIZAÇÃO DOS EVENTOS DO MODAL
+// INICIALIZAÇÃO DO MODAL
 // ====================================================================
 function initAcidenteModal() {
-  // Event listeners para abas
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  tabBtns.forEach(btn => {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
       ativarAba(tabId);
     });
   });
-
-  // Carregar dados do inspetor na aba parecer
   carregarDadosInspetor();
-
-  // Inicializar autocomplete
   iniciarAutoComplete();
-
-  // Carregar lista de linhas no select
   carregarListaLinhas();
-
-  // Preencher data atual
   preencherDataAtual();
-  
-  // Restaurar dados da sessionStorage se existirem (para persistência)
   restaurarDadosSessionStorage();
 }
 
-// ====================================================================
-// RESTAURAR DADOS DO SESSIONSTORAGE
-// ====================================================================
-function restaurarDadosSessionStorage() {
-  const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
-  
-  // Restaurar dados do veículo
-  const veiculoStr = sessionStorage.getItem('veiculo_atual');
-  if (veiculoStr) {
-    try {
-      const veiculo = JSON.parse(veiculoStr);
-      if (getEl('cadastro-placa') && veiculo.placa) getEl('cadastro-placa').value = veiculo.placa;
-      if (getEl('cadastro-renavan') && veiculo.renavan) getEl('cadastro-renavan').value = veiculo.renavan;
-      if (getEl('cadastro-ano-fab') && veiculo.ano) getEl('cadastro-ano-fab').value = veiculo.ano;
-      if (getEl('cadastro-marca') && veiculo.marca) getEl('cadastro-marca').value = veiculo.marca;
-      if (getEl('cadastro-modelo') && veiculo.modelo) getEl('cadastro-modelo').value = veiculo.modelo;
-      if (getEl('cadastro-cor') && veiculo.cor) getEl('cadastro-cor').value = veiculo.cor;
-      if (getEl('cadastro-cidade-onibus') && veiculo.cidade) getEl('cadastro-cidade-onibus').value = veiculo.cidade;
-    } catch(e) { console.warn('Erro ao restaurar veículo:', e); }
-  }
-  
-  // Restaurar dados do motorista
-  const motoristaStr = sessionStorage.getItem('motorista_atual');
-  if (motoristaStr) {
-    try {
-      const motorista = JSON.parse(motoristaStr);
-      if (getEl('cadastro-apelido') && motorista.apelido) getEl('cadastro-apelido').value = motorista.apelido;
-      if (getEl('cadastro-nome-completo') && motorista.nome) getEl('cadastro-nome-completo').value = motorista.nome;
-      if (getEl('cadastro-cnh') && motorista.cnh) getEl('cadastro-cnh').value = motorista.cnh;
-      if (getEl('cadastro-validade-cnh') && motorista.validade_cnh) getEl('cadastro-validade-cnh').value = motorista.validade_cnh;
-      if (getEl('cadastro-moto-logradouro') && motorista.endereco) getEl('cadastro-moto-logradouro').value = motorista.endereco;
-      if (getEl('cadastro-moto-bairro') && motorista.bairro) getEl('cadastro-moto-bairro').value = motorista.bairro;
-      if (getEl('cadastro-moto-cidade') && motorista.cidade) getEl('cadastro-moto-cidade').value = motorista.cidade;
-      if (getEl('cadastro-moto-complemento') && motorista.complemento) getEl('cadastro-moto-complemento').value = motorista.complemento;
-      if (getEl('cadastro-nascimento') && motorista.nascimento) getEl('cadastro-nascimento').value = motorista.nascimento;
-      if (getEl('cadastro-naturalidade') && motorista.naturalidade) getEl('cadastro-naturalidade').value = motorista.naturalidade;
-      if (getEl('cadastro-nome-mae') && motorista.nome_mae) getEl('cadastro-nome-mae').value = motorista.nome_mae;
-      if (getEl('cadastro-celular') && motorista.celular) getEl('cadastro-celular').value = motorista.celular;
-    } catch(e) { console.warn('Erro ao restaurar motorista:', e); }
-  }
-}
-
 function ativarAba(tabId) {
-  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  const targetContent = document.getElementById(`tab-${tabId}`);
-  if (targetContent) targetContent.classList.add('active');
-  const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-  if (targetBtn) targetBtn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const target = document.getElementById(`tab-${tabId}`);
+  if (target) target.classList.add('active');
+  const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+  if (btn) btn.classList.add('active');
 }
 
 // ====================================================================
@@ -116,13 +73,8 @@ function ativarAba(tabId) {
 function abrirModalEnvio(acidenteId = null) {
   const modal = getEl('modal-envio-informacoes');
   if (!modal) return;
-  
-  if (!acidenteId) {
-    iniciarNovoAcidente();
-  } else {
-    carregarAcidenteExistente(acidenteId);
-  }
-  
+  if (!acidenteId) iniciarNovoAcidente();
+  else carregarAcidenteExistente(acidenteId);
   modal.classList.add('is-open');
   initAcidenteModal();
 }
@@ -139,41 +91,33 @@ function iniciarNovoAcidente() {
   acidenteAtualId = Date.now().toString();
   editMode = false;
   originalStatus = null;
-  
-  // Resetar arrays
   bensArray = [];
   vitimasArray = [];
   testemunhasArray = [];
-  fotosColetivoArray = [];
-  fotosLocalArray = [];
-  fotoCNHBase64 = null;
+  fotosColetivoTemp = [];
+  fotosLocalTemp = [];
+  fotosColetivoLinks = [];
+  fotosLocalLinks = [];
+  fotoCNHTemp = null;
   veiculoCounter = 0;
   vitimaCounter = 0;
   testemunhaCounter = 0;
   autoridadesPresentes = {};
-  
-  // Resetar formulários
   limparFormularioCadastro();
   limparFormularioAnalise();
   limparFormularioParecer();
-  
-  // Renderizar containers vazios
   renderizarBensFixos();
   renderizarVitimasFixas();
   renderizarTestemunhasFixas();
   renderizarFotosColetivo();
   renderizarFotosLocal();
-  
-  // Limpar sessionStorage de dados temporários
   sessionStorage.removeItem('veiculo_atual');
   sessionStorage.removeItem('motorista_atual');
-  
-  // Carregar rascunho se existir
   carregarRascunhoLocal();
 }
 
 function limparFormularioCadastro() {
-  const ids = ['cadastro-data', 'cadastro-hora', 'cadastro-logradouro', 'cadastro-bairro', 
+  const ids = ['cadastro-data', 'cadastro-hora', 'cadastro-logradouro', 'cadastro-bairro',
                'cadastro-cidade', 'cadastro-cep', 'cadastro-codigo-linha', 'cadastro-nome-linha',
                'cadastro-sentido-linha', 'cadastro-prefixo', 'cadastro-placa', 'cadastro-renavan',
                'cadastro-ano-fab', 'cadastro-marca', 'cadastro-modelo', 'cadastro-cor',
@@ -181,54 +125,33 @@ function limparFormularioCadastro() {
                'cadastro-cnh', 'cadastro-validade-cnh', 'cadastro-moto-logradouro', 'cadastro-moto-bairro',
                'cadastro-moto-cidade', 'cadastro-moto-complemento', 'cadastro-nascimento',
                'cadastro-naturalidade', 'cadastro-nome-mae', 'cadastro-celular', 'cadastro-historico'];
-  ids.forEach(id => {
-    const el = getEl(id);
-    if (el) el.value = '';
-  });
-  
-  // Reset radio buttons
+  ids.forEach(id => { const el = getEl(id); if (el) el.value = ''; });
   document.querySelectorAll('input[name="tipo-acidente"]').forEach(r => r.checked = false);
-  
-  // Clear preview
   const preview = getEl('preview-foto-cnh');
   if (preview) preview.innerHTML = '';
 }
 
 function limparFormularioAnalise() {
-  // Clear checkboxes
   document.querySelectorAll('#tab-analise input[type="checkbox"]').forEach(cb => cb.checked = false);
   document.querySelectorAll('#tab-analise input[type="radio"]').forEach(r => r.checked = false);
-  
-  // Clear text inputs
-  const ids = ['analise-velocidade', 'analise-lotacao', 'analise-outros-local', 
-               'analise-orgao', 'analise-responsavel-gestor', 'analise-protocolo'];
-  ids.forEach(id => {
-    const el = getEl(id);
-    if (el) el.value = '';
-  });
-  
-  // Hide conditional fields
+  const ids = ['analise-velocidade', 'analise-lotacao', 'analise-outros-local', 'analise-orgao', 'analise-responsavel-gestor', 'analise-protocolo'];
+  ids.forEach(id => { const el = getEl(id); if (el) el.value = ''; });
   hideElement('div-movimentacao');
   hideElement('div-parado');
   hideElement('outros-local-desc');
   hideElement('orgao-gestor-fields');
-  
-  // Clear authority fields container
   const container = getEl('autoridades-fields-container');
   if (container) container.innerHTML = '';
 }
 
 function limparFormularioParecer() {
   const ids = ['parecer-visao', 'parecer-culpa-outros', 'parecer-motivo'];
-  ids.forEach(id => {
-    const el = getEl(id);
-    if (el) el.value = '';
-  });
+  ids.forEach(id => { const el = getEl(id); if (el) el.value = ''; });
   document.querySelectorAll('input[name="atribuicao-culpa"]').forEach(r => r.checked = false);
 }
 
 // ====================================================================
-// RASCUNHO LOCAL
+// RASCUNHO LOCAL (FALLBACK)
 // ====================================================================
 function carregarRascunhoLocal() {
   const chave = `rascunho_acidente_${acidenteAtualId}`;
@@ -237,457 +160,310 @@ function carregarRascunhoLocal() {
     try {
       const rascunho = JSON.parse(dadosSalvos);
       preencherFormularioComDados(rascunho);
-    } catch(e) { console.warn('Erro ao carregar rascunho local', e); }
+    } catch(e) { console.warn(e); }
   }
 }
 
 function preencherFormularioComDados(dados) {
-  // Preencher cadastro
   if (dados.cadastro) {
     Object.keys(dados.cadastro).forEach(key => {
       const el = getEl(`cadastro-${key}`);
       if (el && key !== 'fotoCNH') el.value = dados.cadastro[key];
     });
   }
-  
-  // Preencher análise
   if (dados.analise) {
     Object.keys(dados.analise).forEach(key => {
       const el = getEl(`analise-${key}`);
       if (el) el.value = dados.analise[key];
     });
   }
-  
-  // Restaurar arrays
   if (dados.bens) { bensArray = dados.bens; renderizarBensFixos(); }
   if (dados.vitimas) { vitimasArray = dados.vitimas; renderizarVitimasFixas(); }
   if (dados.testemunhas) { testemunhasArray = dados.testemunhas; renderizarTestemunhasFixas(); }
-  
-  // Salvar dados em sessionStorage para persistência (se houver veículo e motorista)
-  if (dados.cadastro?.prefixo) {
-    sessionStorage.setItem('veiculo_atual', JSON.stringify({
-      prefixo: dados.cadastro.prefixo,
-      placa: dados.cadastro.placa || '',
-      renavan: dados.cadastro.renavan || '',
-      ano: dados.cadastro.anoFab || '',
-      marca: dados.cadastro.marca || '',
-      modelo: dados.cadastro.modelo || '',
-      cor: dados.cadastro.cor || '',
-      cidade: dados.cadastro.cidadeOnibus || ''
-    }));
-  }
-  if (dados.cadastro?.chapa) {
-    sessionStorage.setItem('motorista_atual', JSON.stringify({
-      chapa: dados.cadastro.chapa,
-      apelido: dados.cadastro.apelido || '',
-      nome: dados.cadastro.nomeCompleto || '',
-      cnh: dados.cadastro.cnh || '',
-      validade_cnh: dados.cadastro.validadeCnh || '',
-      endereco: dados.cadastro.motoLogradouro || '',
-      bairro: dados.cadastro.motoBairro || '',
-      cidade: dados.cadastro.motoCidade || '',
-      complemento: dados.cadastro.motoComplemento || '',
-      nascimento: dados.cadastro.nascimento || '',
-      naturalidade: dados.cadastro.naturalidade || '',
-      nome_mae: dados.cadastro.nomeMae || '',
-      celular: dados.cadastro.celular || ''
-    }));
-  }
-  
-  // Avisar se havia fotos no rascunho original
-  if (dados._temFotos) {
-    console.log('ℹ️ Este rascunho continha fotos que não foram salvas localmente. Você precisará reenviá-las.');
-  } else {
-    if (dados.fotosColetivo) { fotosColetivoArray = dados.fotosColetivo; renderizarFotosColetivo(); }
-    if (dados.fotosLocal) { fotosLocalArray = dados.fotosLocal; renderizarFotosLocal(); }
-  }
+  if (dados.fotosColetivo) { fotosColetivoLinks = dados.fotosColetivo; renderizarFotosColetivo(); }
+  if (dados.fotosLocal) { fotosLocalLinks = dados.fotosLocal; renderizarFotosLocal(); }
 }
 
 function salvarRascunhoLocal() {
   try {
-    const dados = montarObjetoAcidenteCompleto();
-    
-    // Criar cópia para rascunho SEM as fotos (para não estourar quota do localStorage)
+    const dados = montarObjetoAcidenteCompleto(true);
     const dadosParaRascunho = {
-      id: dados.id,
-      status: dados.status,
-      fiscal: dados.fiscal,
-      cadastro: { ...dados.cadastro, fotoCNH: null }, // Remove foto CNH
-      analise: dados.analise,
-      bens: dados.bens,
-      vitimas: dados.vitimas,
-      testemunhas: dados.testemunhas,
-      parecer: dados.parecer,
-      fotosColetivo: [], // Remove fotos coletivo
-      fotosLocal: [],    // Remove fotos local
-      finalizado: dados.finalizado,
-      _temFotos: !!(dados.cadastro.fotoCNH || dados.fotosColetivo?.length || dados.fotosLocal?.length)
+      id: dados.id, status: dados.status, fiscal: dados.fiscal,
+      cadastro: { ...dados.cadastro, fotoCNH: null },
+      analise: dados.analise, bens: dados.bens, vitimas: dados.vitimas,
+      testemunhas: dados.testemunhas, parecer: dados.parecer,
+      fotosColetivo: fotosColetivoLinks, fotosLocal: fotosLocalLinks,
+      finalizado: dados.finalizado
     };
-    
-    const chave = `rascunho_acidente_${acidenteAtualId}`;
-    const dadosString = JSON.stringify(dadosParaRascunho);
-    
-    // Verificar tamanho antes de salvar
-    const tamanhoEstimado = new Blob([dadosString]).size;
-    if (tamanhoEstimado > 4 * 1024 * 1024) { // 4MB de segurança
-      console.warn('⚠️ Rascunho muito grande (' + Math.round(tamanhoEstimado/1024) + 'KB). Salvamento local pode falhar.');
+    localStorage.setItem(`rascunho_acidente_${acidenteAtualId}`, JSON.stringify(dadosParaRascunho));
+  } catch(e) { console.error('Erro ao salvar rascunho local', e); }
+}
+
+// ====================================================================
+// COMPRESSÃO DE IMAGEM
+// ====================================================================
+async function compressImage(file, maxWidth = 1024, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          const readerBlob = new FileReader();
+          readerBlob.onloadend = () => {
+            const base64 = readerBlob.result.split(',')[1];
+            resolve({
+              base64: base64,
+              mimeType: 'image/jpeg',
+              nome: file.name.replace(/\.[^/.]+$/, '.jpg')
+            });
+          };
+          readerBlob.readAsDataURL(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ====================================================================
+// FUNÇÕES DE CAPTURA DE FOTOS (com compressão)
+// ====================================================================
+async function anexarFotosColetivo(modo = 'ambos') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  if (modo === 'camera') input.capture = 'environment';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (fotosColetivoTemp.length + files.length > 6) {
+      alert('Máximo de 6 fotos do coletivo.');
+      return;
     }
-    
-    localStorage.setItem(chave, dadosString);
-    console.log('✓ Rascunho salvo localmente (' + Math.round(tamanhoEstimado/1024) + 'KB)');
-  } catch (e) {
-    if (e.name === 'QuotaExceededError') {
-      console.error('❌ Quota do localStorage excedida! Dados podem ter sido perdidos no rascunho local.');
-      alert('⚠️ Aviso: O rascunho local não pôde ser salvo devido ao limite de armazenamento do navegador.\n\nIsso não afeta o salvamento final no servidor. Recomendamos finalizar o relatório o quanto antes.');
-    } else {
-      console.error('Erro ao salvar rascunho local:', e);
+    for (const file of files) {
+      const compressed = await compressImage(file);
+      fotosColetivoTemp.push(compressed);
     }
-  }
-}
-
-// ====================================================================
-// SALVAR ABAS INDIVIDUAIS
-// ====================================================================
-// ====================================================================
-// DEBOUNCE PARA EVITAR SALVAMENTOS EXCESSIVOS
-// ====================================================================
-const salvarDebounce = {};
-function debounceSalvarAba(abaId, func) {
-  if (salvarDebounce[abaId]) clearTimeout(salvarDebounce[abaId]);
-  salvarDebounce[abaId] = setTimeout(() => {
-    delete salvarDebounce[abaId];
-    func();
-  }, 500);
-}
-// ====================================================================
-// SALVAR ABA CADASTRO (COM DEBOUNCE E BACKGROUND)
-// ====================================================================
-async function _salvarAbaCadastro() {
-  const payload = montarObjetoAcidenteCompleto(true); // sem fotos
-  try {
-    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
-  } catch (error) {
-    console.error(error);
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
-  }
-}
-
-function salvarAbaCadastro() {
-  debounceSalvarAba('cadastro', _salvarAbaCadastro);
-  // Feedback visual imediato (opcional)
-  mostrarFeedback('💾 Salvando aba Cadastro...', 1000);
-}
-
-// ====================================================================
-// SALVAR ABA ANÁLISE
-// ====================================================================
-async function salvarAbaAnalise() {
-  const payload = montarObjetoAcidenteCompleto(true); // sem fotos
-  try {
-    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
-  } catch (error) {
-    console.error(error);
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
-  }
-}
-
-function salvarAbaAnalise() {
-  debounceSalvarAba('cadastro', _salvarAbaAnalise);
-  // Feedback visual imediato (opcional)
-  mostrarFeedback('💾 Salvando aba Analise...', 1000);
-}
-
-// ====================================================================
-// SALVAR ABA BENS
-// ====================================================================
-async function salvarAbaBens() {
-  // Não há coleta específica, pois bensArray já está atualizado via UI
-  const dadosCompletos = montarObjetoAcidenteCompleto();
-  try {
-    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
-    mostrarFeedback('✅ Dados da aba Bens salvos no servidor!');
-  } catch (error) {
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
-  }
-}
-
-// ====================================================================
-// SALVAR ABA VÍTIMAS
-// ====================================================================
-async function salvarAbaVitimas() {
-   const payload = montarObjetoAcidenteCompleto(true); // sem fotos
-  try {
-    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
-  } catch (error) {
-    console.error(error);
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
-  }
-}
-
-function salvarAbaVitimas() {
-  debounceSalvarAba('cadastro', _salvarAbaVitimas);
-  // Feedback visual imediato (opcional)
-  mostrarFeedback('💾 Salvando aba Vitimas...', 1000);
-}
-
-// ====================================================================
-// SALVAR ABA TESTEMUNHAS
-// ====================================================================
-async function salvarAbaTestemunhas() {
- const payload = montarObjetoAcidenteCompleto(true); // sem fotos
-  try {
-    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
-  } catch (error) {
-    console.error(error);
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
-  }
-}
-
-function salvarAbaTestemunhas() {
-  debounceSalvarAba('cadastro', _salvarAbaTestemunhas);
-  // Feedback visual imediato (opcional)
-  mostrarFeedback('💾 Salvando aba Testemunhas...', 1000);
-}
-
-// ====================================================================
-// SALVAR ABA PARECER
-// ====================================================================
-async function salvarAbaParecer() {
- const payload = montarObjetoAcidenteCompleto(true); // sem fotos
-  try {
-    await salvarNoBackend(payload, 'salvar_rascunho_acidente');
-  } catch (error) {
-    console.error(error);
-    salvarRascunhoLocal();
-    mostrarFeedback('⚠️ Offline: dados salvos localmente.');
-  }
-}
-
-function salvarAbaParecer() {
-  debounceSalvarAba('cadastro', _salvarAbaParecer);
-  // Feedback visual imediato (opcional)
-  mostrarFeedback('💾 Salvando aba Parecer...', 1000);
-}
-function mostrarFeedback(mensagem) {
-  // Cria um toast temporário
-  const toast = document.createElement('div');
-  toast.textContent = mensagem;
-  toast.style.cssText = `
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: #28a745; color: white; padding: 12px 24px; border-radius: 8px;
-    z-index: 10001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    animation: fadeInOut 2s ease;
-  `;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
-}
-
-// ====================================================================
-// COLETAR DADOS DAS ABAS
-// ====================================================================
-function coletarDadosCadastro() {
-  dadosCadastro = {
-    tipoAcidente: getSelectedRadioValue('tipo-acidente'),
-    data: getEl('cadastro-data')?.value || '',
-    hora: getEl('cadastro-hora')?.value || '',
-    logradouro: getEl('cadastro-logradouro')?.value || '',
-    bairro: getEl('cadastro-bairro')?.value || '',
-    cidade: getEl('cadastro-cidade')?.value || '',
-    cep: getEl('cadastro-cep')?.value || '',
-    codigoLinha: getEl('cadastro-codigo-linha')?.value || '',
-    nomeLinha: getEl('cadastro-nome-linha')?.value || '',
-    sentidoLinha: getEl('cadastro-sentido-linha')?.value || '',
-    prefixo: getEl('cadastro-prefixo')?.value || '',
-    placa: getEl('cadastro-placa')?.value || '',
-    renavan: getEl('cadastro-renavan')?.value || '',
-    anoFab: getEl('cadastro-ano-fab')?.value || '',
-    marca: getEl('cadastro-marca')?.value || '',
-    modelo: getEl('cadastro-modelo')?.value || '',
-    cor: getEl('cadastro-cor')?.value || '',
-    cidadeOnibus: getEl('cadastro-cidade-onibus')?.value || '',
-    chapa: getEl('cadastro-chapa')?.value || '',
-    apelido: getEl('cadastro-apelido')?.value || '',
-    nomeCompleto: getEl('cadastro-nome-completo')?.value || '',
-    cnh: getEl('cadastro-cnh')?.value || '',
-    validadeCnh: getEl('cadastro-validade-cnh')?.value || '',
-    motoLogradouro: getEl('cadastro-moto-logradouro')?.value || '',
-    motoBairro: getEl('cadastro-moto-bairro')?.value || '',
-    motoCidade: getEl('cadastro-moto-cidade')?.value || '',
-    motoComplemento: getEl('cadastro-moto-complemento')?.value || '',
-    nascimento: getEl('cadastro-nascimento')?.value || '',
-    naturalidade: getEl('cadastro-naturalidade')?.value || '',
-    nomeMae: getEl('cadastro-nome-mae')?.value || '',
-    celular: getEl('cadastro-celular')?.value || '',
-    historico: getEl('cadastro-historico')?.value || '',
-    fotoCNH: fotoCNHBase64
+    renderizarFotosColetivo();
   };
+  input.click();
 }
 
-function coletarDadosAnalise() {
-  dadosAnalise = {
-    situacaoOnibus: getCheckedValues('situacao-onibus'),
-    movimentacao: getCheckedValues('movimentacao'),
-    velocidade: getEl('analise-velocidade')?.value || '',
-    paradoSituacao: getCheckedValues('parado-situacao'),
-    lotacao: getEl('analise-lotacao')?.value || '',
-    parteAvariada: getCheckedValues('parte-avariada'),
-    danosResultantes: getCheckedValues('danos-resultantes'),
-    periodo: getCheckedValues('periodo'),
-    clima: getCheckedValues('clima'),
-    iluminacao: getCheckedValues('iluminacao'),
-    visibilidade: getCheckedValues('visibilidade'),
-    tipoAcidenteAnalise: getCheckedValues('tipo-acidente-analise'),
-    localPreenchimento: getCheckedValues('local-preenchimento'),
-    outrosLocal: getEl('analise-outros-local')?.value || '',
-    autoridades: getCheckedValues('autoridades'),
-    orgaoGestor: getSelectedRadioValue('orgao_gestor'),
-    orgao: getEl('analise-orgao')?.value || '',
-    responsavelGestor: getEl('analise-responsavel-gestor')?.value || '',
-    protocolo: getEl('analise-protocolo')?.value || ''
+async function anexarFotosLocal(modo = 'ambos') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  if (modo === 'camera') input.capture = 'environment';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (fotosLocalTemp.length + files.length > 6) {
+      alert('Máximo de 6 fotos do local.');
+      return;
+    }
+    for (const file of files) {
+      const compressed = await compressImage(file);
+      fotosLocalTemp.push(compressed);
+    }
+    renderizarFotosLocal();
   };
+  input.click();
 }
 
-function coletarDadosParecer() {
-  dadosParecer = {
-    inspetor: getEl('parecer-inspetor')?.value || '',
-    chapa: getEl('parecer-chapa')?.value || '',
-    nomeCompleto: getEl('parecer-nome-completo')?.value || '',
-    visao: getEl('parecer-visao')?.value || '',
-    atribuicaoCulpa: getSelectedRadioValue('atribuicao-culpa'),
-    culpaOutros: getEl('parecer-culpa-outros')?.value || '',
-    motivo: getEl('parecer-motivo')?.value || ''
+async function anexarFotosVeiculo(index, modo = 'ambos') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  if (modo === 'camera') input.capture = 'environment';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!bensArray[index].fotosTemp) bensArray[index].fotosTemp = [];
+    if (bensArray[index].fotosTemp.length + files.length > 6) {
+      alert('Máximo de 6 fotos por veículo.');
+      return;
+    }
+    for (const file of files) {
+      const compressed = await compressImage(file);
+      bensArray[index].fotosTemp.push(compressed);
+    }
+    renderizarBensFixos();
   };
+  input.click();
+}
+
+async function anexarFotosVitima(index, modo = 'ambos') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = 'image/*';
+  if (modo === 'camera') input.capture = 'environment';
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!vitimasArray[index].fotosTemp) vitimasArray[index].fotosTemp = [];
+    if (vitimasArray[index].fotosTemp.length + files.length > 6) {
+      alert('Máximo de 6 fotos por vítima.');
+      return;
+    }
+    for (const file of files) {
+      const compressed = await compressImage(file);
+      vitimasArray[index].fotosTemp.push(compressed);
+    }
+    renderizarVitimasFixas();
+  };
+  input.click();
+}
+
+function handleFotoCNH(input) {
+  const file = input.files[0];
+  if (!file) return;
+  compressImage(file).then(compressed => {
+    fotoCNHTemp = compressed.base64;
+    const preview = getEl('preview-foto-cnh');
+    if (preview) preview.innerHTML = `<img src="data:image/jpeg;base64,${compressed.base64}" alt="CNH">`;
+  }).catch(console.error);
+}
+
+// Renderização (exibe nomes das fotos temporárias)
+function renderizarFotosColetivo() {
+  const container = getEl('lista-fotos-coletivo');
+  if (!container) return;
+  if (!fotosColetivoTemp.length && !fotosColetivoLinks.length) {
+    container.innerHTML = '<small>Nenhuma foto</small>';
+    return;
+  }
+  let html = '';
+  fotosColetivoTemp.forEach((f, idx) => {
+    html += `<div class="anexo-item">📷 ${f.nome}<button class="btn-remover-pequeno" onclick="removerFotoColetivo(${idx})">❌</button></div>`;
+  });
+  fotosColetivoLinks.forEach((link, idx) => {
+    html += `<div class="anexo-item">🔗 ${link.substring(0, 30)}...<button class="btn-remover-pequeno" onclick="removerFotoColetivoLink(${idx})">❌</button></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function renderizarFotosLocal() {
+  const container = getEl('lista-fotos-local');
+  if (!container) return;
+  if (!fotosLocalTemp.length && !fotosLocalLinks.length) {
+    container.innerHTML = '<small>Nenhuma foto</small>';
+    return;
+  }
+  let html = '';
+  fotosLocalTemp.forEach((f, idx) => {
+    html += `<div class="anexo-item">📷 ${f.nome}<button class="btn-remover-pequeno" onclick="removerFotoLocal(${idx})">❌</button></div>`;
+  });
+  fotosLocalLinks.forEach((link, idx) => {
+    html += `<div class="anexo-item">🔗 ${link.substring(0, 30)}...<button class="btn-remover-pequeno" onclick="removerFotoLocalLink(${idx})">❌</button></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function removerFotoColetivo(idx) { fotosColetivoTemp.splice(idx, 1); renderizarFotosColetivo(); }
+function removerFotoLocal(idx) { fotosLocalTemp.splice(idx, 1); renderizarFotosLocal(); }
+function removerFotoColetivoLink(idx) { fotosColetivoLinks.splice(idx, 1); renderizarFotosColetivo(); }
+function removerFotoLocalLink(idx) { fotosLocalLinks.splice(idx, 1); renderizarFotosLocal(); }
+
+// ====================================================================
+// ENVIO DE FOTOS PARA O DRIVE
+// ====================================================================
+async function enviarFotosParaDrive() {
+  const payloadFotos = {
+    idAcidente: acidenteAtualId,
+    prefixo: dadosCadastro.prefixo || '',
+    fotoCNH: fotoCNHTemp ? { base64: fotoCNHTemp, mimeType: 'image/jpeg', nome: 'cnh.jpg' } : null,
+    fotosColetivo: fotosColetivoTemp,
+    fotosLocal: fotosLocalTemp,
+    fotosVeiculos: bensArray.map((bem, idx) => ({ index: idx, fotos: bem.fotosTemp || [] })),
+    fotosVitimas: vitimasArray.map((vit, idx) => ({ index: idx, fotos: vit.fotosTemp || [] }))
+  };
+  const formData = new URLSearchParams();
+  formData.append('acao', 'upload_anexos');
+  formData.append('dados', JSON.stringify(payloadFotos));
+  const response = await fetch(URL_PLANILHA, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formData
+  });
+  const result = await response.json();
+  if (!result.success) throw new Error('Falha no upload das fotos');
+  // Atualizar links
+  if (result.fotoCNH) dadosCadastro.fotoCNH = result.fotoCNH;
+  fotosColetivoLinks = result.fotosColetivo || [];
+  fotosLocalLinks = result.fotosLocal || [];
+  for (let i = 0; i < result.fotosVeiculos.length; i++) {
+    if (bensArray[i]) bensArray[i].fotos = result.fotosVeiculos[i].fotos;
+  }
+  for (let i = 0; i < result.fotosVitimas.length; i++) {
+    if (vitimasArray[i]) vitimasArray[i].fotos = result.fotosVitimas[i].fotos;
+  }
+  // Limpar temporários
+  fotosColetivoTemp = [];
+  fotosLocalTemp = [];
+  fotoCNHTemp = null;
+  bensArray.forEach(b => delete b.fotosTemp);
+  vitimasArray.forEach(v => delete v.fotosTemp);
 }
 
 // ====================================================================
-// MONTAR OBJETO COMPLETO (SEM FOTOS NO PAYLOAD PRINCIPAL – SERÃO ENVIADAS SEPARADAMENTE)
-// Etapa 1: Alinhamento completo com backend - todos os campos mapeados
+// MONTAR OBJETO COMPLETO (sem fotos base64)
 // ====================================================================
 function montarObjetoAcidenteCompleto(semFotos = true) {
   coletarDadosCadastro();
   coletarDadosAnalise();
   coletarDadosParecer();
 
-  // Montar endereço completo a partir dos campos individuais
   const enderecoCompleto = [
-    dadosCadastro.logradouro,
-    dadosCadastro.bairro,
-    dadosCadastro.cidade,
-    dadosCadastro.cep
+    dadosCadastro.logradouro, dadosCadastro.bairro,
+    dadosCadastro.cidade, dadosCadastro.cep
   ].filter(Boolean).join(', ');
 
   const payload = {
     id: acidenteAtualId,
     status: editMode ? originalStatus : 'EM_ANDAMENTO',
-    fiscal: localStorage.getItem('inspectorApelido') || '',
-    finalizado: (originalStatus === 'FINALIZADO') || false,
-    
-    // Dados principais da ocorrência (alinhados com Ocorrencia_acidentes)
+    fiscal: localStorage.getItem('inspectorApelido'),
+    finalizado: (originalStatus === 'FINALIZADO'),
     dataAcidente: dadosCadastro.data || '',
     horaAcidente: dadosCadastro.hora || '',
     local: enderecoCompleto,
     descricaoAnalise: dadosCadastro.historico || '',
-    anexosPrincipais: semFotos ? [] : (fotosColetivoArray.concat(fotosLocalArray)),
     prefixo: dadosCadastro.prefixo || '',
     motoristaChapa: dadosCadastro.chapa || '',
-    
-    // Objetos completos por aba (para persistência e recuperação)
-    cadastro: {
-      tipoAcidente: dadosCadastro.tipoAcidente || '',
-      data: dadosCadastro.data || '',
-      hora: dadosCadastro.hora || '',
-      logradouro: dadosCadastro.logradouro || '',
-      bairro: dadosCadastro.bairro || '',
-      cidade: dadosCadastro.cidade || '',
-      cep: dadosCadastro.cep || '',
-      codigoLinha: dadosCadastro.codigoLinha || '',
-      nomeLinha: dadosCadastro.nomeLinha || '',
-      sentidoLinha: dadosCadastro.sentidoLinha || '',
-      prefixo: dadosCadastro.prefixo || '',
-      placa: dadosCadastro.placa || '',
-      renavan: dadosCadastro.renavan || '',
-      anoFab: dadosCadastro.anoFab || '',
-      marca: dadosCadastro.marca || '',
-      modelo: dadosCadastro.modelo || '',
-      cor: dadosCadastro.cor || '',
-      cidadeOnibus: dadosCadastro.cidadeOnibus || '',
-      chapa: dadosCadastro.chapa || '',
-      apelido: dadosCadastro.apelido || '',
-      nomeCompleto: dadosCadastro.nomeCompleto || '',
-      cnh: dadosCadastro.cnh || '',
-      validadeCnh: dadosCadastro.validadeCnh || '',
-      motoLogradouro: dadosCadastro.motoLogradouro || '',
-      motoBairro: dadosCadastro.motoBairro || '',
-      motoCidade: dadosCadastro.motoCidade || '',
-      motoComplemento: dadosCadastro.motoComplemento || '',
-      nascimento: dadosCadastro.nascimento || '',
-      naturalidade: dadosCadastro.naturalidade || '',
-      nomeMae: dadosCadastro.nomeMae || '',
-      celular: dadosCadastro.celular || '',
-      historico: dadosCadastro.historico || '',
-      fotoCNH: semFotos ? null : fotoCNHBase64
-    },
-    analise: {
-      situacaoOnibus: dadosAnalise.situacaoOnibus || [],
-      movimentacao: dadosAnalise.movimentacao || [],
-      velocidade: dadosAnalise.velocidade || '',
-      paradoSituacao: dadosAnalise.paradoSituacao || [],
-      lotacao: dadosAnalise.lotacao || '',
-      parteAvariada: dadosAnalise.parteAvariada || [],
-      danosResultantes: dadosAnalise.danosResultantes || [],
-      periodo: dadosAnalise.periodo || [],
-      clima: dadosAnalise.clima || [],
-      iluminacao: dadosAnalise.iluminacao || [],
-      visibilidade: dadosAnalise.visibilidade || [],
-      tipoAcidenteAnalise: dadosAnalise.tipoAcidenteAnalise || [],
-      localPreenchimento: dadosAnalise.localPreenchimento || [],
-      outrosLocal: dadosAnalise.outrosLocal || '',
-      autoridades: dadosAnalise.autoridades || [],
-      orgaoGestor: dadosAnalise.orgaoGestor || '',
-      orgao: dadosAnalise.orgao || '',
-      responsavelGestor: dadosAnalise.responsavelGestor || '',
-      protocolo: dadosAnalise.protocolo || ''
-    },
+    cadastro: dadosCadastro,
+    analise: dadosAnalise,
     parecer: dadosParecer,
-    bens: bensArray.map(b => ({
-      tipoBem: b.tipoBem || b.tipo || '',
-      placa: b.placa || '',
-      ano: b.ano || '',
-      cor: b.cor || '',
-      modelo: b.modelo || '',
-      renavan: b.renavan || b.renavam || '',
-      proprietario: b.proprietario || '',
-      telefone: b.telefone || '',
-      parteAvariada: b.parteAvariada || '',
-      danosResultantes: b.danosResultantes || b.danos || '',
-      fotos: semFotos ? [] : (b.fotos || [])
-    })),
-    vitimas: vitimasArray.map(v => ({
-      nome: v.nome || '',
-      documento: v.documento || v.documento_vitima || '',
-      contato: v.contato || v.contato_vitima || '',
-      lesoes: v.lesoes || '',
-      atendimento: v.atendimento || v.atendimento_vitima || '',
-      fotos: semFotos ? [] : (v.fotos || [])
-    })),
-    testemunhas: testemunhasArray.map(t => ({
-      nome: t.nome || '',
-      documento: t.documento || '',
-      contato: t.contato || '',
-      relato: t.relato || ''
-    }))
+    bens: bensArray,
+    vitimas: vitimasArray,
+    testemunhas: testemunhasArray,
+    fotosColetivo: fotosColetivoLinks,
+    fotosLocal: fotosLocalLinks
   };
 
+  if (semFotos) {
+    if (payload.cadastro) delete payload.cadastro.fotoCNH; // já é link ou null
+    payload.bens = payload.bens?.map(b => { const { fotosTemp, ...rest } = b; return rest; });
+    payload.vitimas = payload.vitimas?.map(v => { const { fotosTemp, ...rest } = v; return rest; });
+  }
   return payload;
 }
 
 // ====================================================================
-// SALVAR NO BACKEND (COM FEEDBACK VISUAL)
+// SALVAR NO BACKEND (COM FEEDBACK)
 // ====================================================================
 async function salvarNoBackend(payload, acao, exibirToast = true) {
   const formData = new URLSearchParams();
@@ -701,11 +477,7 @@ async function salvarNoBackend(payload, acao, exibirToast = true) {
   });
   const texto = await response.text();
   let resultado;
-  try {
-    resultado = JSON.parse(texto);
-  } catch (e) {
-    resultado = { success: response.ok, raw: texto };
-  }
+  try { resultado = JSON.parse(texto); } catch(e) { resultado = { success: response.ok, raw: texto }; }
   if (exibirToast) {
     if (resultado.success) mostrarFeedback(`✅ ${acao} realizado!`);
     else mostrarFeedback(`❌ Erro: ${resultado.erro || 'Falha na comunicação'}`);
@@ -714,154 +486,143 @@ async function salvarNoBackend(payload, acao, exibirToast = true) {
 }
 
 // ====================================================================
-// FINALIZAR ACIDENTE (SALVAR COMPLETO)
+// SALVAR ABAS (COM DEBOUNCE E ENVIO DIRETO)
+// ====================================================================
+function debounceSalvarAba(abaId, func) {
+  if (salvarDebounce[abaId]) clearTimeout(salvarDebounce[abaId]);
+  salvarDebounce[abaId] = setTimeout(() => {
+    delete salvarDebounce[abaId];
+    func();
+  }, 500);
+}
+
+async function _salvarAbaCadastro() {
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaCadastro() { debounceSalvarAba('cadastro', _salvarAbaCadastro); mostrarFeedback('💾 Salvando...', 1000); }
+
+async function _salvarAbaAnalise() {
+  coletarDadosAnalise();
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaAnalise() { debounceSalvarAba('analise', _salvarAbaAnalise); mostrarFeedback('💾 Salvando...', 1000); }
+
+async function _salvarAbaBens() {
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaBens() { debounceSalvarAba('bens', _salvarAbaBens); mostrarFeedback('💾 Salvando...', 1000); }
+
+async function _salvarAbaVitimas() {
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaVitimas() { debounceSalvarAba('vitimas', _salvarAbaVitimas); mostrarFeedback('💾 Salvando...', 1000); }
+
+async function _salvarAbaTestemunhas() {
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaTestemunhas() { debounceSalvarAba('testemunhas', _salvarAbaTestemunhas); mostrarFeedback('💾 Salvando...', 1000); }
+
+async function _salvarAbaParecer() {
+  coletarDadosParecer();
+  const payload = montarObjetoAcidenteCompleto(true);
+  await salvarNoBackend(payload, 'salvar_rascunho_acidente');
+}
+function salvarAbaParecer() { debounceSalvarAba('parecer', _salvarAbaParecer); mostrarFeedback('💾 Salvando...', 1000); }
+
+// ====================================================================
+// FINALIZAR ACIDENTE (COM UPLOAD DE FOTOS PRIMEIRO)
 // ====================================================================
 async function finalizarAcidenteCompleto() {
-  // Coletar todos os dados
-  const dados = montarObjetoAcidenteCompleto();
+  // Verifica se há fotos pendentes
+  if (fotoCNHTemp || fotosColetivoTemp.length || fotosLocalTemp.length ||
+      bensArray.some(b => b.fotosTemp?.length) || vitimasArray.some(v => v.fotosTemp?.length)) {
+    mostrarFeedback('📤 Enviando fotos para o Drive...');
+    try {
+      await enviarFotosParaDrive();
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao enviar fotos. Verifique sua conexão e tente novamente.');
+      return;
+    }
+  }
+  const dados = montarObjetoAcidenteCompleto(true);
   dados.finalizado = true;
   dados.status = 'FINALIZADO';
-
   try {
-    // Salvar rascunho final (já contém todos os campos)
-    const resultado = await salvarNoBackend(dados, 'salvar_rascunho_acidente');
-    if (!resultado.success) throw new Error('Falha ao salvar rascunho');
-
-    // Finalizar (marcar status na planilha principal)
+    await salvarNoBackend(dados, 'salvar_rascunho_acidente');
     await salvarNoBackend({ id: acidenteAtualId }, 'finalizar_acidente');
-
-    alert('✅ Relatório finalizado e enviado com sucesso!');
+    mostrarFeedback('✅ Relatório finalizado e enviado!');
     localStorage.removeItem(`rascunho_acidente_${acidenteAtualId}`);
     fecharModalEnvio();
-    
-    // Recarregar consulta se estiver aberta
     const modalConsulta = getEl('modal-consulta-acidentes');
-    if (modalConsulta && modalConsulta.style.display !== 'none') {
-      if (typeof carregarListaAcidentes === 'function') carregarListaAcidentes();
-    }
+    if (modalConsulta && modalConsulta.style.display !== 'none' && typeof carregarListaAcidentes === 'function') carregarListaAcidentes();
   } catch (error) {
-    console.error('Erro ao finalizar:', error);
-    alert('Erro ao finalizar o relatório. Verifique sua conexão.\n' + error.message);
+    console.error(error);
+    alert('Erro ao finalizar: ' + error.message);
   }
 }
+
 // ====================================================================
-// FUNÇÃO DE CARREGAR ACIDENTE EXISTENTE (RECONSTRUIR OS DADOS COMPLETOS)
+// CARREGAR ACIDENTE EXISTENTE
 // ====================================================================
 async function carregarAcidenteExistente(id) {
   const url = `${URL_PLANILHA}?acao=obter_acidente&id=${id}&_=${Date.now()}`;
   const response = await fetch(url);
   const acidente = await response.json();
   if (!acidente) return;
-
   acidenteAtualId = acidente.id;
   originalStatus = acidente.status;
   editMode = true;
-
-  // Restaurar os objetos completos a partir dos JSONs salvos
-  if (acidente.cadastro) {
-    dadosCadastro = acidente.cadastro;
-    preencherFormularioCadastro(dadosCadastro);
-  }
-  if (acidente.analise) {
-    dadosAnalise = acidente.analise;
-    preencherFormularioAnalise(dadosAnalise);
-  }
-  if (acidente.parecer) {
-    dadosParecer = acidente.parecer;
-    preencherFormularioParecer(dadosParecer);
-  }
-  if (acidente.bens) {
-    bensArray = acidente.bens;
-    renderizarBensFixos();
-  }
-  if (acidente.vitimas) {
-    vitimasArray = acidente.vitimas;
-    renderizarVitimasFixas();
-  }
-  if (acidente.testemunhas) {
-    testemunhasArray = acidente.testemunhas;
-    renderizarTestemunhasFixas();
-  }
-  if (acidente.fotosColetivo) {
-    fotosColetivoArray = acidente.fotosColetivo;
-    renderizarFotosColetivo();
-  }
-  if (acidente.fotosLocal) {
-    fotosLocalArray = acidente.fotosLocal;
-    renderizarFotosLocal();
-  }
-
+  if (acidente.cadastro) preencherFormularioCadastro(acidente.cadastro);
+  if (acidente.analise) preencherFormularioAnalise(acidente.analise);
+  if (acidente.parecer) preencherFormularioParecer(acidente.parecer);
+  if (acidente.bens) { bensArray = acidente.bens; renderizarBensFixos(); }
+  if (acidente.vitimas) { vitimasArray = acidente.vitimas; renderizarVitimasFixas(); }
+  if (acidente.testemunhas) { testemunhasArray = acidente.testemunhas; renderizarTestemunhasFixas(); }
+  if (acidente.fotosColetivo) { fotosColetivoLinks = acidente.fotosColetivo; renderizarFotosColetivo(); }
+  if (acidente.fotosLocal) { fotosLocalLinks = acidente.fotosLocal; renderizarFotosLocal(); }
   const currentUser = localStorage.getItem('inspectorApelido');
-  const podeEditar = (window.currentUserRole === 'ADMIN' || 
-                       window.currentUserRole === 'SAF' || 
-                       window.currentUserRole === 'ENCARREGADO' || 
-                       acidente.fiscal === currentUser);
-
-  if (acidente.status === 'FINALIZADO' || !podeEditar) {
-    desabilitarEdicao();
-    alert('Este relatório está finalizado ou você não tem permissão para editar. Modo somente leitura.');
-  } else {
-    habilitarEdicao();
-  }
+  const podeEditar = (window.currentUserRole === 'ADMIN' || window.currentUserRole === 'SAF' || window.currentUserRole === 'ENCARREGADO' || acidente.fiscal === currentUser);
+  if (acidente.status === 'FINALIZADO' || !podeEditar) desabilitarEdicao();
+  else habilitarEdicao();
 }
 
-// Funções auxiliares para preencher formulários a partir dos objetos
 function preencherFormularioCadastro(dados) {
   const mapeamento = {
-    'tipo-acidente': dados.tipoAcidente,
-    'cadastro-data': dados.data,
-    'cadastro-hora': dados.hora,
-    'cadastro-logradouro': dados.logradouro,
-    'cadastro-bairro': dados.bairro,
-    'cadastro-cidade': dados.cidade,
-    'cadastro-cep': dados.cep,
-    'cadastro-codigo-linha': dados.codigoLinha,
-    'cadastro-nome-linha': dados.nomeLinha,
-    'cadastro-sentido-linha': dados.sentidoLinha,
-    'cadastro-prefixo': dados.prefixo,
-    'cadastro-placa': dados.placa,
-    'cadastro-renavan': dados.renavan,
-    'cadastro-ano-fab': dados.anoFab,
-    'cadastro-marca': dados.marca,
-    'cadastro-modelo': dados.modelo,
-    'cadastro-cor': dados.cor,
-    'cadastro-cidade-onibus': dados.cidadeOnibus,
-    'cadastro-chapa': dados.chapa,
-    'cadastro-apelido': dados.apelido,
-    'cadastro-nome-completo': dados.nomeCompleto,
-    'cadastro-cnh': dados.cnh,
-    'cadastro-validade-cnh': dados.validadeCnh,
-    'cadastro-moto-logradouro': dados.motoLogradouro,
-    'cadastro-moto-bairro': dados.motoBairro,
-    'cadastro-moto-cidade': dados.motoCidade,
-    'cadastro-moto-complemento': dados.motoComplemento,
-    'cadastro-nascimento': dados.nascimento,
-    'cadastro-naturalidade': dados.naturalidade,
-    'cadastro-nome-mae': dados.nomeMae,
-    'cadastro-celular': dados.celular,
-    'cadastro-historico': dados.historico
+    'tipo-acidente': dados.tipoAcidente, 'cadastro-data': dados.data, 'cadastro-hora': dados.hora,
+    'cadastro-logradouro': dados.logradouro, 'cadastro-bairro': dados.bairro, 'cadastro-cidade': dados.cidade,
+    'cadastro-cep': dados.cep, 'cadastro-codigo-linha': dados.codigoLinha, 'cadastro-nome-linha': dados.nomeLinha,
+    'cadastro-sentido-linha': dados.sentidoLinha, 'cadastro-prefixo': dados.prefixo, 'cadastro-placa': dados.placa,
+    'cadastro-renavan': dados.renavan, 'cadastro-ano-fab': dados.anoFab, 'cadastro-marca': dados.marca,
+    'cadastro-modelo': dados.modelo, 'cadastro-cor': dados.cor, 'cadastro-cidade-onibus': dados.cidadeOnibus,
+    'cadastro-chapa': dados.chapa, 'cadastro-apelido': dados.apelido, 'cadastro-nome-completo': dados.nomeCompleto,
+    'cadastro-cnh': dados.cnh, 'cadastro-validade-cnh': dados.validadeCnh, 'cadastro-moto-logradouro': dados.motoLogradouro,
+    'cadastro-moto-bairro': dados.motoBairro, 'cadastro-moto-cidade': dados.motoCidade,
+    'cadastro-moto-complemento': dados.motoComplemento, 'cadastro-nascimento': dados.nascimento,
+    'cadastro-naturalidade': dados.naturalidade, 'cadastro-nome-mae': dados.nomeMae,
+    'cadastro-celular': dados.celular, 'cadastro-historico': dados.historico
   };
   for (const [id, valor] of Object.entries(mapeamento)) {
     const el = getEl(id);
     if (el && valor) {
-      if (el.type === 'radio') {
-        const radio = document.querySelector(`input[name="${id}"][value="${valor}"]`);
-        if (radio) radio.checked = true;
-      } else {
-        el.value = valor;
-      }
+      if (el.type === 'radio') { const radio = document.querySelector(`input[name="${id}"][value="${valor}"]`); if (radio) radio.checked = true; }
+      else el.value = valor;
     }
   }
   if (dados.fotoCNH) {
-    fotoCNHBase64 = dados.fotoCNH;
+    fotoCNHTemp = null; // Não armazenar base64, apenas o link
     const preview = getEl('preview-foto-cnh');
-    if (preview) preview.innerHTML = `<img src="data:image/jpeg;base64,${dados.fotoCNH}" alt="CNH">`;
+    if (preview) preview.innerHTML = `<a href="${dados.fotoCNH}" target="_blank">📸 Ver CNH</a>`;
   }
 }
 
 function preencherFormularioAnalise(dados) {
-  // Implementação similar para popular checkboxes/radios/textos
-  // ... (a ser detalhada se necessário, mas pode ser deixada para etapa posterior)
+  // Implementar conforme necessário (pode ser deixado para etapa posterior)
 }
 
 function preencherFormularioParecer(dados) {
@@ -869,1137 +630,376 @@ function preencherFormularioParecer(dados) {
   if (getEl('parecer-chapa')) getEl('parecer-chapa').value = dados.chapa || '';
   if (getEl('parecer-nome-completo')) getEl('parecer-nome-completo').value = dados.nomeCompleto || '';
   if (getEl('parecer-visao')) getEl('parecer-visao').value = dados.visao || '';
-  const radioCulpa = document.querySelector(`input[name="atribuicao-culpa"][value="${dados.atribuicaoCulpa}"]`);
-  if (radioCulpa) radioCulpa.checked = true;
+  const radio = document.querySelector(`input[name="atribuicao-culpa"][value="${dados.atribuicaoCulpa}"]`);
+  if (radio) radio.checked = true;
   if (getEl('parecer-culpa-outros')) getEl('parecer-culpa-outros').value = dados.culpaOutros || '';
   if (getEl('parecer-motivo')) getEl('parecer-motivo').value = dados.motivo || '';
 }
+
+function desabilitarEdicao() { document.querySelectorAll('#modal-envio-informacoes input, #modal-envio-informacoes textarea, #modal-envio-informacoes select, #modal-envio-informacoes button').forEach(el => el.disabled = true); }
+function habilitarEdicao() { document.querySelectorAll('#modal-envio-informacoes input, #modal-envio-informacoes textarea, #modal-envio-informacoes select').forEach(el => el.disabled = false); }
+
 // ====================================================================
-// FUNÇÕES DE UI - TOGGLE CAMPOS CONDICIONAIS
+// COLETA DE DADOS DAS ABAS
+// ====================================================================
+function coletarDadosCadastro() {
+  dadosCadastro = {
+    tipoAcidente: getSelectedRadioValue('tipo-acidente'), data: getEl('cadastro-data')?.value || '',
+    hora: getEl('cadastro-hora')?.value || '', logradouro: getEl('cadastro-logradouro')?.value || '',
+    bairro: getEl('cadastro-bairro')?.value || '', cidade: getEl('cadastro-cidade')?.value || '',
+    cep: getEl('cadastro-cep')?.value || '', codigoLinha: getEl('cadastro-codigo-linha')?.value || '',
+    nomeLinha: getEl('cadastro-nome-linha')?.value || '', sentidoLinha: getEl('cadastro-sentido-linha')?.value || '',
+    prefixo: getEl('cadastro-prefixo')?.value || '', placa: getEl('cadastro-placa')?.value || '',
+    renavan: getEl('cadastro-renavan')?.value || '', anoFab: getEl('cadastro-ano-fab')?.value || '',
+    marca: getEl('cadastro-marca')?.value || '', modelo: getEl('cadastro-modelo')?.value || '',
+    cor: getEl('cadastro-cor')?.value || '', cidadeOnibus: getEl('cadastro-cidade-onibus')?.value || '',
+    chapa: getEl('cadastro-chapa')?.value || '', apelido: getEl('cadastro-apelido')?.value || '',
+    nomeCompleto: getEl('cadastro-nome-completo')?.value || '', cnh: getEl('cadastro-cnh')?.value || '',
+    validadeCnh: getEl('cadastro-validade-cnh')?.value || '', motoLogradouro: getEl('cadastro-moto-logradouro')?.value || '',
+    motoBairro: getEl('cadastro-moto-bairro')?.value || '', motoCidade: getEl('cadastro-moto-cidade')?.value || '',
+    motoComplemento: getEl('cadastro-moto-complemento')?.value || '', nascimento: getEl('cadastro-nascimento')?.value || '',
+    naturalidade: getEl('cadastro-naturalidade')?.value || '', nomeMae: getEl('cadastro-nome-mae')?.value || '',
+    celular: getEl('cadastro-celular')?.value || '', historico: getEl('cadastro-historico')?.value || '',
+    fotoCNH: dadosCadastro.fotoCNH || null  // mantém link existente
+  };
+}
+
+function coletarDadosAnalise() {
+  dadosAnalise = {
+    situacaoOnibus: getCheckedValues('situacao-onibus'), movimentacao: getCheckedValues('movimentacao'),
+    velocidade: getEl('analise-velocidade')?.value || '', paradoSituacao: getCheckedValues('parado-situacao'),
+    lotacao: getEl('analise-lotacao')?.value || '', parteAvariada: getCheckedValues('parte-avariada'),
+    danosResultantes: getCheckedValues('danos-resultantes'), periodo: getCheckedValues('periodo'),
+    clima: getCheckedValues('clima'), iluminacao: getCheckedValues('iluminacao'), visibilidade: getCheckedValues('visibilidade'),
+    tipoAcidenteAnalise: getCheckedValues('tipo-acidente-analise'), localPreenchimento: getCheckedValues('local-preenchimento'),
+    outrosLocal: getEl('analise-outros-local')?.value || '', autoridades: getCheckedValues('autoridades'),
+    orgaoGestor: getSelectedRadioValue('orgao_gestor'), orgao: getEl('analise-orgao')?.value || '',
+    responsavelGestor: getEl('analise-responsavel-gestor')?.value || '', protocolo: getEl('analise-protocolo')?.value || ''
+  };
+}
+
+function coletarDadosParecer() {
+  dadosParecer = {
+    inspetor: getEl('parecer-inspetor')?.value || '', chapa: getEl('parecer-chapa')?.value || '',
+    nomeCompleto: getEl('parecer-nome-completo')?.value || '', visao: getEl('parecer-visao')?.value || '',
+    atribuicaoCulpa: getSelectedRadioValue('atribuicao-culpa'), culpaOutros: getEl('parecer-culpa-outros')?.value || '',
+    motivo: getEl('parecer-motivo')?.value || ''
+  };
+}
+
+// ====================================================================
+// FUNÇÕES DE UI (TOGGLES, CEP, AUTOCOMPLETE, ETC.)
 // ====================================================================
 function toggleSituacaoOnibus() {
   const transitando = document.querySelector('input[name="situacao-onibus"][value="transitando"]');
   const parado = document.querySelector('input[name="situacao-onibus"][value="parado"]');
-  
-  if (transitando && transitando.checked) {
-    showElement('div-movimentacao');
-    hideElement('div-parado');
-  } else if (parado && parado.checked) {
-    showElement('div-parado');
-    hideElement('div-movimentacao');
-  } else {
-    hideElement('div-movimentacao');
-    hideElement('div-parado');
-  }
+  if (transitando && transitando.checked) { showElement('div-movimentacao'); hideElement('div-parado'); }
+  else if (parado && parado.checked) { showElement('div-parado'); hideElement('div-movimentacao'); }
+  else { hideElement('div-movimentacao'); hideElement('div-parado'); }
 }
-
-function toggleOutrosLocal(elementId) {
-  const el = getEl(elementId);
-  if (el) {
-    const isChecked = document.querySelector('input[name="local-preenchimento"][value="outros"]')?.checked;
-    if (isChecked) showElement(elementId);
-    else hideElement(elementId);
-  }
-}
-
-function toggleOutrosSinalizacao(elementId) {
-  const el = getEl(elementId);
-  if (el) {
-    const isChecked = document.querySelector('input[name="sinalizacao-vertical"][value="outros"]')?.checked;
-    if (isChecked) showElement(elementId);
-    else hideElement(elementId);
-  }
-}
-
-function toggleOrgaoGestor(isSim) {
-  if (isSim) showElement('orgao-gestor-fields');
-  else hideElement('orgao-gestor-fields');
-}
-
-function toggleOutrosCulpa(elementId) {
-  const outros = document.querySelector('input[name="atribuicao-culpa"][value="outros"]');
-  if (outros && outros.checked) showElement(elementId);
-  else hideElement(elementId);
-}
-
+function toggleOutrosLocal(elementId) { const isChecked = document.querySelector('input[name="local-preenchimento"][value="outros"]')?.checked; isChecked ? showElement(elementId) : hideElement(elementId); }
+function toggleOutrosSinalizacao(elementId) { const isChecked = document.querySelector('input[name="sinalizacao-vertical"][value="outros"]')?.checked; isChecked ? showElement(elementId) : hideElement(elementId); }
+function toggleOrgaoGestor(isSim) { isSim ? showElement('orgao-gestor-fields') : hideElement('orgao-gestor-fields'); }
+function toggleOutrosCulpa(elementId) { const outros = document.querySelector('input[name="atribuicao-culpa"][value="outros"]'); outros?.checked ? showElement(elementId) : hideElement(elementId); }
 function toggleAutoridadeFields(valor) {
   const checkbox = document.querySelector(`input[name="autoridades"][value="${valor}"]`);
   const container = getEl('autoridades-fields-container');
   if (!container) return;
-  
   if (checkbox && checkbox.checked) {
-    // Criar campos para esta autoridade
     if (!autoridadesPresentes[valor]) {
       autoridadesPresentes[valor] = true;
-      const html = `
-        <div class="veiculo-card" id="auth-fields-${valor}">
-          <h4>${valor.toUpperCase()} - Dados</h4>
-          <div class="form-row">
-            <div class="field"><label>Nº Viatura</label><input type="text" id="auth-viatura-${valor}"></div>
-            <div class="field"><label>Responsável</label><input type="text" id="auth-resp-${valor}"></div>
-          </div>
-          <div class="field"><label>Distrato/Batalhão/Delegacia</label><input type="text" id="auth-dist-${valor}"></div>
-        </div>
-      `;
+      const html = `<div class="veiculo-card" id="auth-fields-${valor}"><h4>${valor.toUpperCase()} - Dados</h4><div class="form-row"><div class="field"><label>Nº Viatura</label><input type="text" id="auth-viatura-${valor}"></div><div class="field"><label>Responsável</label><input type="text" id="auth-resp-${valor}"></div></div><div class="field"><label>Distrato/Batalhão/Delegacia</label><input type="text" id="auth-dist-${valor}"></div></div>`;
       container.insertAdjacentHTML('beforeend', html);
     }
   } else {
-    // Remover campos
     autoridadesPresentes[valor] = false;
     const fieldsEl = getEl(`auth-fields-${valor}`);
     if (fieldsEl) fieldsEl.remove();
   }
 }
+function showElement(id) { const el = getEl(id); if (el) el.classList.add('show'); }
+function hideElement(id) { const el = getEl(id); if (el) el.classList.remove('show'); }
 
-function showElement(id) {
-  const el = getEl(id);
-  if (el) el.classList.add('show');
-}
-
-function hideElement(id) {
-  const el = getEl(id);
-  if (el) el.classList.remove('show');
-}
-
-// ====================================================================
-// BUSCAR CEP
-// ====================================================================
 async function buscarCEP() {
-  const cep = getEl('cadastro-cep')?.value || '';
-  if (cep.length < 8) {
-    alert('Digite um CEP válido (8 dígitos)');
-    return;
-  }
-  
-  const cepLimpo = cep.replace(/\D/g, '');
+  const cep = getEl('cadastro-cep')?.value?.replace(/\D/g, '');
+  if (cep.length !== 8) { alert('Digite um CEP válido (8 dígitos)'); return; }
   try {
-    const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-    const data = await response.json();
-    if (data.erro) {
-      alert('CEP não encontrado');
-      return;
-    }
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json();
+    if (data.erro) { alert('CEP não encontrado'); return; }
     if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = data.logradouro;
     if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = data.bairro;
     if (getEl('cadastro-cidade')) getEl('cadastro-cidade').value = data.localidade;
-  } catch (e) {
-    console.warn('Erro ao buscar CEP', e);
-    alert('Erro ao buscar CEP. Tente novamente.');
-  }
+  } catch(e) { alert('Erro ao buscar CEP'); }
 }
 
-// ====================================================================
-// BUSCAR ENDEREÇO POR CEP (REVERSO - BUSCA CEP A PARTIR DO ENDEREÇO)
-// ====================================================================
-async function buscarEnderecoPorCEP() {
-  const logradouro = getEl('cadastro-logradouro')?.value || '';
-  const bairro = getEl('cadastro-bairro')?.value || '';
-  const cidade = getEl('cadastro-cidade')?.value || '';
-  
-  if (!logradouro && !bairro && !cidade) {
-    alert('Preencha pelo menos um campo de endereço (logradouro, bairro ou cidade)');
-    return;
-  }
-  
-  try {
-    // Usando a API do BrasilAPI para busca reversa de CEP
-    const url = `https://brasilapi.com.br/api/cep/v2/${encodeURIComponent(logradouro || '')}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('CEP não encontrado');
-    const data = await response.json();
-    
-    // Verifica se o bairro e cidade correspondem
-    if (data && Array.isArray(data)) {
-      // Procura o CEP que melhor corresponde
-      const cepEncontrado = data.find(cep => 
-        (!bairro || cep.bairro?.toLowerCase().includes(bairro.toLowerCase())) &&
-        (!cidade || cep.localidade?.toLowerCase().includes(cidade.toLowerCase()))
-      );
-      
-      if (cepEncontrado) {
-        if (getEl('cadastro-cep')) getEl('cadastro-cep').value = cepEncontrado.cep;
-        if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = cepEncontrado.logradouro;
-        if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = cepEncontrado.bairro;
-        if (getEl('cadastro-cidade')) getEl('cadastro-cidade').value = cepEncontrado.localidade;
-        alert('CEP encontrado: ' + cepEncontrado.cep);
-        return;
-      }
-    }
-    
-    // Se não encontrou pela BrasilAPI, tenta OpenStreetMap Nominatim
-    const query = `${logradouro}, ${bairro}, ${cidade}, Brasil`;
-    const nomResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-    const nomData = await nomResponse.json();
-    
-    if (nomData && nomData.length > 0) {
-      const result = nomData[0];
-      // Extrair informações do resultado
-      const display = result.display_name.split(',');
-      if (display.length >= 3) {
-        if (getEl('cadastro-logradouro')) getEl('cadastro-logradouro').value = display[0].trim();
-        if (display.length >= 4) {
-          if (getEl('cadastro-bairro')) getEl('cadastro-bairro').value = display[1].trim();
-        }
-        // CEP pode estar em display_name
-        const cepMatch = result.display_name.match(/(\d{5}-?\d{3})/);
-        if (cepMatch && getEl('cadastro-cep')) getEl('cadastro-cep').value = cepMatch[1];
-      }
-      alert('Endereço encontrado! CEP sugerido: ' + (cepMatch ? cepMatch[1] : 'Não disponível'));
-    } else {
-      alert('Não foi possível encontrar o CEP com os dados informados. Preencha manualmente.');
-    }
-  } catch (e) {
-    console.warn('Erro ao buscar endereço por CEP', e);
-    alert('Erro ao buscar CEP pelo endereço. Tente novamente ou preencha manualmente.');
-  }
-}
+async function buscarEnderecoPorCEP() { alert('Função em desenvolvimento'); }
 
-// ====================================================================
-// BUSCAR DADOS DA LINHA
-// ====================================================================
 async function buscarDadosLinha() {
-  const codigo = getEl('cadastro-codigo-linha')?.value || '';
-  if (codigo.length < 2) return;
-  
+  const codigo = getEl('cadastro-codigo-linha')?.value;
+  if (!codigo || codigo.length < 2) return;
   try {
     const url = `${URL_PLANILHA}?acao=buscar_linhas&termo=${encodeURIComponent(codigo)}`;
     const resp = await fetch(url);
     const linhas = await resp.json();
-    if (linhas && linhas.length > 0) {
-      // Pega a primeira linha encontrada
+    if (linhas && linhas.length) {
       const linha = linhas[0];
       if (getEl('cadastro-nome-linha')) getEl('cadastro-nome-linha').value = linha.nome || linha.descricao || '';
       if (getEl('cadastro-sentido-linha')) getEl('cadastro-sentido-linha').value = linha.sentido || '';
     }
-  } catch (e) { console.warn('Erro ao buscar linha', e); }
+  } catch(e) { console.warn(e); }
 }
 
-// ====================================================================
-// BUSCAR DADOS DO VEÍCULO
-// ====================================================================
-async function buscarDadosVeiculo() {
-  // Esta função foi desativada para evitar interferências
-  // O preenchimento automático é feito exclusivamente em iniciarAutoComplete()
-  console.log('[DEBUG] buscarDadosVeiculo chamada - função desativada');
-}
-
-// ====================================================================
-// BUSCAR DADOS DO MOTORISTA
-// ====================================================================
-async function buscarDadosMotorista() {
-  // Esta função foi desativada para evitar interferências
-  // O preenchimento automático é feito exclusivamente em iniciarAutoComplete()
-  console.log('[DEBUG] buscarDadosMotorista chamada - função desativada');
-}
-
-// ====================================================================
-// CARREGAR DADOS DO INSPETOR
-// ====================================================================
 function carregarDadosInspetor() {
   const apelido = localStorage.getItem('inspectorApelido') || '';
   const chapa = localStorage.getItem('inspectorChapa') || '';
   const nome = localStorage.getItem('inspectorNome') || '';
-  
   if (getEl('parecer-inspetor')) getEl('parecer-inspetor').value = apelido;
   if (getEl('parecer-chapa')) getEl('parecer-chapa').value = chapa;
   if (getEl('parecer-nome-completo')) getEl('parecer-nome-completo').value = nome;
 }
 
-// ====================================================================
-// ANEXOS - FOTOS
-// ====================================================================
-async function anexarFotosColetivo(modo = 'ambos') {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.accept = 'image/*';
-  
-  // Configura o input baseado no modo selecionado
-  if (modo === 'camera') {
-    input.capture = 'environment';
-  } else if (modo === 'galeria') {
-    // Não adiciona capture, permitindo apenas galeria
-    input.removeAttribute('capture');
-  }
-  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
-  
-  input.onchange = async (e) => {
-    const files = Array.from(e.target.files);
-    if (fotosColetivoArray.length + files.length > 6) {
-      alert('Máximo de 6 fotos do coletivo.');
-      return;
-    }
-    for (const file of files) {
-      const base64 = await fileToBase64(file);
-      fotosColetivoArray.push({
-        base64: base64.split(',')[1],
-        mimeType: file.type,
-        nome: `coletivo_${fotosColetivoArray.length + 1}.${file.type.split('/')[1]}`
-      });
-    }
-    renderizarFotosColetivo();
-  };
-  input.click();
-}
-
-async function anexarFotosLocal(modo = 'ambos') {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.accept = 'image/*';
-  
-  // Configura o input baseado no modo selecionado
-  if (modo === 'camera') {
-    input.capture = 'environment';
-  } else if (modo === 'galeria') {
-    // Não adiciona capture, permitindo apenas galeria
-    input.removeAttribute('capture');
-  }
-  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
-  
-  input.onchange = async (e) => {
-    const files = Array.from(e.target.files);
-    if (fotosLocalArray.length + files.length > 6) {
-      alert('Máximo de 6 fotos do local.');
-      return;
-    }
-    for (const file of files) {
-      const base64 = await fileToBase64(file);
-      fotosLocalArray.push({
-        base64: base64.split(',')[1],
-        mimeType: file.type,
-        nome: `local_${fotosLocalArray.length + 1}.${file.type.split('/')[1]}`
-      });
-    }
-    renderizarFotosLocal();
-  };
-  input.click();
-}
-
-async function anexarFotosVeiculo(index, modo = 'ambos') {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.accept = 'image/*';
-  
-  // Configura o input baseado no modo selecionado
-  if (modo === 'camera') {
-    input.capture = 'environment';
-  } else if (modo === 'galeria') {
-    // Não adiciona capture, permitindo apenas galeria
-    input.removeAttribute('capture');
-  }
-  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
-  
-  input.onchange = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!bensArray[index].fotos) bensArray[index].fotos = [];
-    if (bensArray[index].fotos.length + files.length > 6) {
-      alert('Máximo de 6 fotos por veículo.');
-      return;
-    }
-    for (const file of files) {
-      const base64 = await fileToBase64(file);
-      bensArray[index].fotos.push({
-        base64: base64.split(',')[1],
-        mimeType: file.type,
-        nome: `veiculo${index+1}_${bensArray[index].fotos.length + 1}.${file.type.split('/')[1]}`
-      });
-    }
-    renderizarBensFixos();
-  };
-  input.click();
-}
-
-async function anexarFotosVitima(index, modo = 'ambos') {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.accept = 'image/*';
-  
-  // Configura o input baseado no modo selecionado
-  if (modo === 'camera') {
-    input.capture = 'environment';
-  } else if (modo === 'galeria') {
-    // Não adiciona capture, permitindo apenas galeria
-    input.removeAttribute('capture');
-  }
-  // Se modo === 'ambos', não define capture, permitindo que o navegador decida
-  
-  input.onchange = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!vitimasArray[index].fotos) vitimasArray[index].fotos = [];
-    if (vitimasArray[index].fotos.length + files.length > 6) {
-      alert('Máximo de 6 fotos por vítima.');
-      return;
-    }
-    for (const file of files) {
-      const base64 = await fileToBase64(file);
-      vitimasArray[index].fotos.push({
-        base64: base64.split(',')[1],
-        mimeType: file.type,
-        nome: `vitima${index+1}_${vitimasArray[index].fotos.length + 1}.${file.type.split('/')[1]}`
-      });
-    }
-    renderizarVitimasFixas();
-  };
-  input.click();
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.readAsDataURL(file);
-  });
-}
-
-function handleFotoCNH(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    fotoCNHBase64 = e.target.result.split(',')[1];
-    const preview = getEl('preview-foto-cnh');
-    if (preview) preview.innerHTML = `<img src="${e.target.result}" alt="CNH">`;
-  };
-  reader.readAsDataURL(file);
-}
-
-function renderizarFotosColetivo() {
-  const container = getEl('lista-fotos-coletivo');
-  if (!container) return;
-  if (fotosColetivoArray.length === 0) {
-    container.innerHTML = '<small>Nenhuma foto</small>';
-    return;
-  }
-  let html = '';
-  fotosColetivoArray.forEach((f, idx) => {
-    html += `<div class="anexo-item">📷 ${f.nome}<button class="btn-remover-pequeno" onclick="removerFotoColetivo(${idx})">❌</button></div>`;
-  });
-  container.innerHTML = html;
-}
-
-function renderizarFotosLocal() {
-  const container = getEl('lista-fotos-local');
-  if (!container) return;
-  if (fotosLocalArray.length === 0) {
-    container.innerHTML = '<small>Nenhuma foto</small>';
-    return;
-  }
-  let html = '';
-  fotosLocalArray.forEach((f, idx) => {
-    html += `<div class="anexo-item">📷 ${f.nome}<button class="btn-remover-pequeno" onclick="removerFotoLocal(${idx})">❌</button></div>`;
-  });
-  container.innerHTML = html;
-}
-
-function removerFotoColetivo(index) {
-  fotosColetivoArray.splice(index, 1);
-  renderizarFotosColetivo();
-}
-
-function removerFotoLocal(index) {
-  fotosLocalArray.splice(index, 1);
-  renderizarFotosLocal();
-}
-
-// ====================================================================
-// BENS AVARIADOS - CAMPOS FIXOS
-// ====================================================================
-function adicionarVeiculoBem() {
-  veiculoCounter++;
-  bensArray.push({
-    id: veiculoCounter,
-    tipo: 'Veículo ' + veiculoCounter,
-    placa: '',
-    modelo: '',
-    ano: '',
-    cor: '',
-    proprietario: '',
-    telefone: '',
-    danos: '',
-    fotos: []
-  });
-  renderizarBensFixos();
-}
-
-function removerVeiculoBem(index) {
-  if (confirm('Remover este veículo?')) {
-    bensArray.splice(index, 1);
-    renderizarBensFixos();
-  }
-}
-
-function atualizarVeiculoBem(index, campo, valor) {
-  bensArray[index][campo] = valor;
-}
-
-function renderizarBensFixos() {
-  const container = getEl('bens-fixos-container');
-  if (!container) return;
-  
-  if (bensArray.length === 0) {
-    container.innerHTML = '<div class="empty-list"><small>Nenhum veículo adicionado.</small></div>';
-    return;
-  }
-  
-  let html = '';
-  bensArray.forEach((bem, idx) => {
-    html += `
-      <div class="veiculo-card">
-        <button class="btn-remover-veiculo" onclick="removerVeiculoBem(${idx})">🗑️</button>
-        <h4>Veículo ${bem.id}</h4>
-        <div class="form-row">
-          <div class="field"><label>Tipo</label><input type="text" value="${bem.tipo}" onchange="atualizarVeiculoBem(${idx}, 'tipo', this.value)"></div>
-          <div class="field"><label>Placa</label><input type="text" value="${bem.placa || ''}" onchange="atualizarVeiculoBem(${idx}, 'placa', this.value)"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>Modelo</label><input type="text" value="${bem.modelo || ''}" onchange="atualizarVeiculoBem(${idx}, 'modelo', this.value)"></div>
-          <div class="field"><label>Ano</label><input type="text" value="${bem.ano || ''}" onchange="atualizarVeiculoBem(${idx}, 'ano', this.value)"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>Cor</label><input type="text" value="${bem.cor || ''}" onchange="atualizarVeiculoBem(${idx}, 'cor', this.value)"></div>
-          <div class="field"><label>Proprietário</label><input type="text" value="${bem.proprietario || ''}" onchange="atualizarVeiculoBem(${idx}, 'proprietario', this.value)"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>Telefone</label><input type="tel" value="${bem.telefone || ''}" onchange="atualizarVeiculoBem(${idx}, 'telefone', this.value)"></div>
-          <div class="field"><label>Danos</label><input type="text" value="${bem.danos || ''}" onchange="atualizarVeiculoBem(${idx}, 'danos', this.value)"></div>
-        </div>
-        <div class="field">
-          <label>Fotos do Terceiro (até 6)</label>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'camera')">📷 Câmera</button>
-            <button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'galeria')">🖼️ Galeria</button>
-          </div>
-          <div class="grid-anexos-preview" style="margin-top: 8px;">
-            ${bem.fotos && bem.fotos.length > 0 ? bem.fotos.map((f, i) => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : '<small>Nenhuma foto</small>'}
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  container.innerHTML = html;
-}
-
-// ====================================================================
-// VÍTIMAS - CAMPOS FIXOS
-// ====================================================================
-function adicionarVitima() {
-  vitimaCounter++;
-  vitimasArray.push({
-    id: vitimaCounter,
-    nome: '',
-    documento: '',
-    contato: '',
-    lesões: '',
-    atendimento: '',
-    fotos: []
-  });
-  renderizarVitimasFixas();
-}
-
-function removerVitima(index) {
-  if (confirm('Remover esta vítima?')) {
-    vitimasArray.splice(index, 1);
-    renderizarVitimasFixas();
-  }
-}
-
-function atualizarVitima(index, campo, valor) {
-  vitimasArray[index][campo] = valor;
-}
-
-function renderizarVitimasFixas() {
-  const container = getEl('vitimas-fixas-container');
-  if (!container) return;
-  
-  if (vitimasArray.length === 0) {
-    container.innerHTML = '<div class="empty-list"><small>Nenhuma vítima adicionada.</small></div>';
-    return;
-  }
-  
-  let html = '';
-  vitimasArray.forEach((v, idx) => {
-    html += `
-      <div class="vitima-card">
-        <button class="btn-remover-vitima" onclick="removerVitima(${idx})">🗑️</button>
-        <h4>Vítima ${v.id}</h4>
-        <div class="form-row">
-          <div class="field"><label>Nome</label><input type="text" value="${v.nome || ''}" onchange="atualizarVitima(${idx}, 'nome', this.value)"></div>
-          <div class="field"><label>Documento (RG/CPF)</label><input type="text" value="${v.documento || ''}" onchange="atualizarVitima(${idx}, 'documento', this.value)"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>Contato</label><input type="tel" value="${v.contato || ''}" onchange="atualizarVitima(${idx}, 'contato', this.value)"></div>
-          <div class="field"><label>Lesões</label><input type="text" value="${v.lesões || ''}" onchange="atualizarVitima(${idx}, 'lesões', this.value)"></div>
-        </div>
-        <div class="field"><label>Atendimento</label><input type="text" value="${v.atendimento || ''}" onchange="atualizarVitima(${idx}, 'atendimento', this.value)"></div>
-        <div class="field">
-          <label>Fotos (opcional)</label>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'camera')">📷 Câmera</button>
-            <button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'galeria')">🖼️ Galeria</button>
-          </div>
-          <div class="grid-anexos-preview" style="margin-top: 8px;">
-            ${v.fotos && v.fotos.length > 0 ? v.fotos.map((f, i) => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : '<small>Nenhuma foto</small>'}
-          </div>
-        </div>
-      </div>
-    `;
-  });
-  container.innerHTML = html;
-}
-
-// ====================================================================
-// TESTEMUNHAS - CAMPOS FIXOS
-// ====================================================================
-function adicionarTestemunha() {
-  testemunhaCounter++;
-  testemunhasArray.push({
-    id: testemunhaCounter,
-    nome: '',
-    documento: '',
-    contato: '',
-    relato: ''
-  });
-  renderizarTestemunhasFixas();
-}
-
-function removerTestemunha(index) {
-  if (confirm('Remover esta testemunha?')) {
-    testemunhasArray.splice(index, 1);
-    renderizarTestemunhasFixas();
-  }
-}
-
-function atualizarTestemunha(index, campo, valor) {
-  testemunhasArray[index][campo] = valor;
-}
-
-function renderizarTestemunhasFixas() {
-  const container = getEl('testemunhas-fixas-container');
-  if (!container) return;
-  
-  if (testemunhasArray.length === 0) {
-    container.innerHTML = '<div class="empty-list"><small>Nenhuma testemunha adicionada.</small></div>';
-    return;
-  }
-  
-  let html = '';
-  testemunhasArray.forEach((t, idx) => {
-    html += `
-      <div class="testemunha-card">
-        <button class="btn-remover-testemunha" onclick="removerTestemunha(${idx})">🗑️</button>
-        <h4>Testemunha ${t.id}</h4>
-        <div class="form-row">
-          <div class="field"><label>Nome</label><input type="text" value="${t.nome || ''}" onchange="atualizarTestemunha(${idx}, 'nome', this.value)"></div>
-          <div class="field"><label>Documento (RG/CPF)</label><input type="text" value="${t.documento || ''}" onchange="atualizarTestemunha(${idx}, 'documento', this.value)"></div>
-        </div>
-        <div class="form-row">
-          <div class="field"><label>Contato</label><input type="tel" value="${t.contato || ''}" onchange="atualizarTestemunha(${idx}, 'contato', this.value)"></div>
-        </div>
-        <div class="field"><label>Relato</label><textarea rows="3" onchange="atualizarTestemunha(${idx}, 'relato', this.value)">${t.relato || ''}</textarea></div>
-      </div>
-    `;
-  });
-  container.innerHTML = html;
-}
-
-// ====================================================================
-// DITADO POR VOZ (HISTÓRICO E PARECER) - Speech-to-Text
-// ====================================================================
-let recognitionHistorico = null;
-let recognitionParecer = null;
-let ditandoHistorico = false;
-let ditandoParecer = false;
-
-function iniciarReconhecimentoFala() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert('Seu navegador não suporta reconhecimento de fala. Use o Chrome ou Edge.');
-    return null;
-  }
-  
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'pt-BR';
-  recognition.continuous = true;
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  
-  return recognition;
-}
-
-async function gravarHistorico() {
-  // Verifica se é usuário de teste (chapa 55555)
-  const chapa = getEl('cadastro-chapa')?.value || '';
-  const isDemoUser = chapa === '55555';
-
-  if (isDemoUser) {
-    // MODO DEMONSTRAÇÃO: Simula digitação sem usar o microfone real
-    iniciarSimulacaoDitadoHistorico();
-    return;
-  }
-
-  // Validações completas apenas para usuários normais
-  const tipoAcidenteEl = document.querySelector('input[name="tipo-acidente"]:checked');
-  const tipoAcidente = tipoAcidenteEl ? tipoAcidenteEl.value : '';
-  
-  const logradouro = getEl('cadastro-logradouro')?.value || '';
-  const prefixo = getEl('cadastro-prefixo')?.value || '';
-  
-  const demoConditionsMet = isDemoUser && 
-                           tipoAcidente === 'colisao_com_vitimas' && 
-                           logradouro.toLowerCase().includes('av. hum, 1345') && 
-                           prefixo === '210';
-
-  if (ditandoHistorico) {
-    // Parar ditado
-    if (recognitionHistorico) {
-      recognitionHistorico.stop();
-    }
-    ditandoHistorico = false;
-    // Remove estilos ativos
-    const textarea = getEl('cadastro-historico');
-    const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
-    if (textarea) textarea.style.borderColor = '';
-    if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
-    return;
-  }
-  
-  try {
-    const recognition = iniciarReconhecimentoFala();
-    if (!recognition) return;
-    
-    recognitionHistorico = recognition;
-    const textarea = getEl('cadastro-historico');
-    if (!textarea) return;
-    
-    // Adiciona moldura verde-clara e muda ícone do botão
-    textarea.style.borderColor = '#90EE90';
-    const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
-    if (btn) btn.innerHTML = '<i class="fas fa-volume-up"></i> Ouvindo...';
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript;
-      const existing = textarea.value;
-      textarea.value = existing + (existing ? ' ' : '') + transcript;
-    };
-    
-    recognition.onerror = (event) => {
-      // Silencia erros comuns de network e no-speech que ocorrem frequentemente
-      if (event.error === 'no-speech' || event.error === 'network') {
-        ditandoHistorico = false;
-        // Remove estilos ativos
-        textarea.style.borderColor = '';
-        if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
-        return;
-      }
-      
-      console.warn('Erro no reconhecimento de fala:', event.error);
-      alert('Erro no reconhecimento de fala: ' + event.error);
-      ditandoHistorico = false;
-      // Remove estilos ativos
-      textarea.style.borderColor = '';
-      if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
-    };
-    
-    recognition.onend = () => {
-      if (ditandoHistorico) {
-        recognition.start(); // Reinicia se ainda estiver no modo ditado
-      } else {
-        // Remove estilos ativos quando parar
-        textarea.style.borderColor = '';
-        if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
-      }
-    };
-    
-    recognition.start();
-    ditandoHistorico = true;
-  } catch (e) {
-    console.warn('Erro ao iniciar reconhecimento de fala', e);
-    alert('Não foi possível iniciar o reconhecimento de fala. Verifique as permissões e se seu navegador é compatível.');
-  }
-}
-
-function iniciarSimulacaoDitadoHistorico() {
-  const textoCompleto = "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira. Após a queda, o motociclista caiu e sofreu arranhões leves. A moto foi pra debaixo do ônibus e ficou danificada.";
-  
-  // Divide em palavras para simular digitação/fala
-  const palavras = textoCompleto.split(' ');
-  let indice = 0;
-  
-  const textarea = getEl('cadastro-historico');
-  if (!textarea) return;
-  
-  // Adiciona moldura verde-clara e muda ícone do botão
-  textarea.style.borderColor = '#90EE90';
-  const btn = document.querySelector('.btn-gravar[onclick="gravarHistorico()"]');
-  if (btn) btn.innerHTML = '<i class="fas fa-volume-up"></i> Ouvindo...';
-  
-  textarea.value = "";
-  ditandoHistorico = true;
-  
-  const intervalo = setInterval(() => {
-    if (indice < palavras.length) {
-      textarea.value += (indice > 0 ? ' ' : '') + palavras[indice];
-      textarea.scrollTop = textarea.scrollHeight; // Auto-scroll
-      indice++;
-    } else {
-      clearInterval(intervalo);
-      ditandoHistorico = false;
-      // Remove estilos ativos
-      textarea.style.borderColor = '';
-      if (btn) btn.innerHTML = '<i class="fas fa-microphone"></i> Gravar';
-      // Salva automaticamente após o ditado
-      salvarRascunho(); 
-    }
-  }, 150); // Velocidade de digitação/fala
-}
-
-async function gravarParecer() {
-  if (ditandoParecer) {
-    if (recognitionParecer) {
-      recognitionParecer.stop();
-    }
-    ditandoParecer = false;
-    return;
-  }
-  
-  try {
-    const recognition = iniciarReconhecimentoFala();
-    if (!recognition) return;
-    
-    recognitionParecer = recognition;
-    const textarea = getEl('parecer-visao');
-    if (!textarea) return;
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript;
-      const existing = textarea.value;
-      textarea.value = existing + (existing ? ' ' : '') + transcript;
-    };
-    
-    recognition.onerror = (event) => {
-      // Silencia erros comuns de network e no-speech que ocorrem frequentemente
-      if (event.error === 'no-speech' || event.error === 'network') {
-        console.debug('Speech recognition: ', event.error);
-        ditandoParecer = false;
-        return;
-      }
-      
-      console.warn('Erro no reconhecimento de fala:', event.error);
-      alert('Erro no reconhecimento de fala: ' + event.error);
-      ditandoParecer = false;
-    };
-    
-    recognition.onend = () => {
-      if (ditandoParecer) {
-        recognition.start();
-      }
-    };
-    
-    recognition.start();
-    ditandoParecer = true;
-    alert('🎤 Ditando... Clique em \"Gravar\" novamente para parar.');
-  } catch (e) {
-    console.warn('Erro ao iniciar reconhecimento de fala', e);
-    alert('Não foi possível iniciar o reconhecimento de fala. Verifique as permissões e se seu navegador é compatível.');
+function preencherDataAtual() {
+  const dataInput = getEl('cadastro-data');
+  if (dataInput && !dataInput.value) dataInput.value = new Date().toISOString().split('T')[0];
+  const horaInput = getEl('cadastro-hora');
+  if (horaInput && !horaInput.value) {
+    const agora = new Date();
+    horaInput.value = `${agora.getHours().toString().padStart(2,'0')}:${agora.getMinutes().toString().padStart(2,'0')}`;
   }
 }
 
 // ====================================================================
-// AUTOCOMPLETE
+// AUTOCOMPLETE E LISTAS
 // ====================================================================
 function iniciarAutoComplete() {
   const prefixoInput = getEl('cadastro-prefixo');
   const motoristaInput = getEl('cadastro-chapa');
-  const logradouroInput = getEl('analise-logradouro');
-  const datalistVeiculos = getEl('lista-veiculos');
-  const datalistMotoristas = getEl('lista-motoristas');
-  
-  // Verifica se é usuário de teste (chapa 55555) - ISOLAMENTO TOTAL
   const isTestUser = localStorage.getItem('inspectorChapa') === '55555';
-  
-  // ====================================================================
-  // MODO DE DEMONSTRAÇÃO (USUÁRIO 55555) - DADOS FIXOS
-  // ====================================================================
   if (isTestUser) {
-    // Configura opções fixas para demonstração
-    if (datalistVeiculos) {
-      datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)"></option>';
-    }
-    if (datalistMotoristas) {
-      datalistMotoristas.innerHTML = '<option value="98765">João da Silva Teste (Motorista Teste)</option>';
-    }
-    
-    // Evento para veículo (apenas 210)
-    if (prefixoInput) {
-      prefixoInput.addEventListener('input', function() {
-        if (this.value === '210') {
-          preencherDadosVeiculoTeste();
-        }
-      });
-    }
-    
-    // Evento para motorista (apenas 98765)
-    if (motoristaInput) {
-      motoristaInput.addEventListener('input', function() {
-        if (this.value === '98765') {
-          preencherDadosMotoristaTeste();
-        }
-      });
-    }
-    
-    console.log('[MODO DEMO] Autocomplete configurado para usuário 55555');
-    return; // Sai da função - não executa código de produção
+    const datalistVeiculos = getEl('lista-veiculos');
+    const datalistMotoristas = getEl('lista-motoristas');
+    if (datalistVeiculos) datalistVeiculos.innerHTML = '<option value="210">STC-4F92 - Mercedes Benz Apache Vip V (Inspetor de Testes)</option>';
+    if (datalistMotoristas) datalistMotoristas.innerHTML = '<option value="98765">João da Silva Teste (Motorista Teste)</option>';
+    if (prefixoInput) prefixoInput.addEventListener('input', function() { if (this.value === '210') preencherDadosVeiculoTeste(); });
+    if (motoristaInput) motoristaInput.addEventListener('input', function() { if (this.value === '98765') preencherDadosMotoristaTeste(); });
+    return;
   }
-  
-  // ====================================================================
-  // MODO PRODUÇÃO (OUTROS USUÁRIOS) - API REAL
-  // ====================================================================
-  console.log('[MODO PRODUÇÃO] Autocomplete configurado para usuário comum');
-  
-  // Configura autocomplete de veículos via API
-  if (prefixoInput && datalistVeiculos) {
+  // Produção
+  if (prefixoInput && getEl('lista-veiculos')) {
     prefixoInput.addEventListener('input', debounce(async function() {
       const termo = this.value;
       if (termo.length < 2) return;
-      
       const url = `${URL_PLANILHA}?acao=buscar_veiculo&prefixo=${encodeURIComponent(termo)}`;
       try {
         const resp = await fetch(url);
         const veiculo = await resp.json();
         if (veiculo && veiculo.prefixo) {
-          datalistVeiculos.innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
+          getEl('lista-veiculos').innerHTML = `<option value="${veiculo.prefixo}">${veiculo.placa} - ${veiculo.modelo || ''}</option>`;
           sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
         }
-      } catch(e) { 
-        console.warn('Erro ao buscar veículo:', e);
-      }
+      } catch(e) { console.warn(e); }
     }, 500));
   }
-  
-  // Configura autocomplete de motoristas via API
-  if (motoristaInput && datalistMotoristas) {
+  if (motoristaInput && getEl('lista-motoristas')) {
     motoristaInput.addEventListener('input', debounce(async function() {
       const termo = this.value;
       if (termo.length < 2) return;
-      
       const url = `${URL_PLANILHA}?acao=buscar_operador&termo=${encodeURIComponent(termo)}`;
       try {
         const resp = await fetch(url);
         const operadores = await resp.json();
         if (operadores && operadores.length) {
-          datalistMotoristas.innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
-          if (operadores[0]) {
-            sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
-          }
+          getEl('lista-motoristas').innerHTML = operadores.map(op => `<option value="${op.chapa}">${op.nome} (${op.apelido})</option>`).join('');
+          sessionStorage.setItem('motorista_atual', JSON.stringify(operadores[0]));
         }
-      } catch(e) { 
-        console.warn('Erro ao buscar operador:', e);
-      }
+      } catch(e) { console.warn(e); }
     }, 500));
   }
 }
 
-// ====================================================================
-// PREENCHER DADOS DE VEÍCULO DE TESTE
-// ====================================================================
 function preencherDadosVeiculoTeste() {
-  const veiculoTeste = {
-    prefixo: '210',
-    placa: 'STC-4F92',
-    renavan: '123456789',
-    ano: '2020',
-    marca: 'Mercedes Benz',
-    modelo: 'Apache Vip V',
-    cor: 'Branco',
-    cidade: 'São Paulo'
-  };
-  
-  // Salva em sessionStorage para persistência
-  sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculoTeste));
-  
-  // Preenche os campos
-  if (getEl('cadastro-placa')) getEl('cadastro-placa').value = veiculoTeste.placa;
-  if (getEl('cadastro-renavan')) getEl('cadastro-renavan').value = veiculoTeste.renavan;
-  if (getEl('cadastro-ano-fab')) getEl('cadastro-ano-fab').value = veiculoTeste.ano;
-  if (getEl('cadastro-marca')) getEl('cadastro-marca').value = veiculoTeste.marca;
-  if (getEl('cadastro-modelo')) getEl('cadastro-modelo').value = veiculoTeste.modelo;
-  if (getEl('cadastro-cor')) getEl('cadastro-cor').value = veiculoTeste.cor;
-  if (getEl('cadastro-cidade-onibus')) getEl('cadastro-cidade-onibus').value = veiculoTeste.cidade;
+  const veiculo = { prefixo:'210', placa:'STC-4F92', renavan:'123456789', ano:'2020', marca:'Mercedes Benz', modelo:'Apache Vip V', cor:'Branco', cidade:'São Paulo' };
+  sessionStorage.setItem('veiculo_atual', JSON.stringify(veiculo));
+  if (getEl('cadastro-placa')) getEl('cadastro-placa').value = veiculo.placa;
+  if (getEl('cadastro-renavan')) getEl('cadastro-renavan').value = veiculo.renavan;
+  if (getEl('cadastro-ano-fab')) getEl('cadastro-ano-fab').value = veiculo.ano;
+  if (getEl('cadastro-marca')) getEl('cadastro-marca').value = veiculo.marca;
+  if (getEl('cadastro-modelo')) getEl('cadastro-modelo').value = veiculo.modelo;
+  if (getEl('cadastro-cor')) getEl('cadastro-cor').value = veiculo.cor;
+  if (getEl('cadastro-cidade-onibus')) getEl('cadastro-cidade-onibus').value = veiculo.cidade;
 }
 
-// ====================================================================
-// PREENCHER DADOS DE MOTORISTA DE TESTE
-// ====================================================================
 function preencherDadosMotoristaTeste() {
-  const motoristaTeste = {
-    chapa: '98765',
-    apelido: 'Motorista Teste',
-    nome: 'João da Silva Teste',
-    cnh: '12345678900',
-    validade_cnh: '12/2025',
-    endereco: 'Rua das Flores, 123',
-    bairro: 'Centro',
-    cidade: 'São Paulo',
-    complemento: 'Apto 45',
-    nascimento: '13/05/1974',
-    naturalidade: 'São Paulo - SP',
-    nome_mae: 'Maria da Silva',
-    celular: '(11) 99999-9999'
-  };
-  
-  // Salva em sessionStorage para persistência
-  sessionStorage.setItem('motorista_atual', JSON.stringify(motoristaTeste));
-  
-  // Preenche os campos
-  if (getEl('cadastro-apelido')) getEl('cadastro-apelido').value = motoristaTeste.apelido;
-  if (getEl('cadastro-nome-completo')) getEl('cadastro-nome-completo').value = motoristaTeste.nome;
-  if (getEl('cadastro-cnh')) getEl('cadastro-cnh').value = motoristaTeste.cnh;
-  if (getEl('cadastro-validade-cnh')) getEl('cadastro-validade-cnh').value = motoristaTeste.validade_cnh;
-  if (getEl('cadastro-moto-logradouro')) getEl('cadastro-moto-logradouro').value = motoristaTeste.endereco;
-  if (getEl('cadastro-moto-bairro')) getEl('cadastro-moto-bairro').value = motoristaTeste.bairro;
-  if (getEl('cadastro-moto-cidade')) getEl('cadastro-moto-cidade').value = motoristaTeste.cidade;
-  if (getEl('cadastro-moto-complemento')) getEl('cadastro-moto-complemento').value = motoristaTeste.complemento;
-  if (getEl('cadastro-nascimento')) getEl('cadastro-nascimento').value = motoristaTeste.nascimento;
-  if (getEl('cadastro-naturalidade')) getEl('cadastro-naturalidade').value = motoristaTeste.naturalidade;
-  if (getEl('cadastro-nome-mae')) getEl('cadastro-nome-mae').value = motoristaTeste.nome_mae;
-  if (getEl('cadastro-celular')) getEl('cadastro-celular').value = motoristaTeste.celular;
+  const motorista = { chapa:'98765', apelido:'Motorista Teste', nome:'João da Silva Teste', cnh:'12345678900', validade_cnh:'12/2025', endereco:'Rua das Flores, 123', bairro:'Centro', cidade:'São Paulo', complemento:'Apto 45', nascimento:'13/05/1974', naturalidade:'São Paulo - SP', nome_mae:'Maria da Silva', celular:'(11) 99999-9999' };
+  sessionStorage.setItem('motorista_atual', JSON.stringify(motorista));
+  if (getEl('cadastro-apelido')) getEl('cadastro-apelido').value = motorista.apelido;
+  if (getEl('cadastro-nome-completo')) getEl('cadastro-nome-completo').value = motorista.nome;
+  if (getEl('cadastro-cnh')) getEl('cadastro-cnh').value = motorista.cnh;
+  if (getEl('cadastro-validade-cnh')) getEl('cadastro-validade-cnh').value = motorista.validade_cnh;
+  if (getEl('cadastro-moto-logradouro')) getEl('cadastro-moto-logradouro').value = motorista.endereco;
+  if (getEl('cadastro-moto-bairro')) getEl('cadastro-moto-bairro').value = motorista.bairro;
+  if (getEl('cadastro-moto-cidade')) getEl('cadastro-moto-cidade').value = motorista.cidade;
+  if (getEl('cadastro-moto-complemento')) getEl('cadastro-moto-complemento').value = motorista.complemento;
+  if (getEl('cadastro-nascimento')) getEl('cadastro-nascimento').value = motorista.nascimento;
+  if (getEl('cadastro-naturalidade')) getEl('cadastro-naturalidade').value = motorista.naturalidade;
+  if (getEl('cadastro-nome-mae')) getEl('cadastro-nome-mae').value = motorista.nome_mae;
+  if (getEl('cadastro-celular')) getEl('cadastro-celular').value = motorista.celular;
 }
 
-// ====================================================================
-// CARREGAR LISTA DE LINHAS
-// ====================================================================
 async function carregarListaLinhas() {
-  const selectLinha = getEl('cadastro-codigo-linha');
-  if (!selectLinha) return;
-  
+  const select = getEl('cadastro-codigo-linha');
+  if (!select) return;
+  select.innerHTML = '<option value="">Selecione...</option>';
+  const optionDemo = document.createElement('option');
+  optionDemo.value = '033';
+  optionDemo.textContent = '033 - Sta. Antônio (Inspetor de Testes)';
+  select.appendChild(optionDemo);
   try {
-    // Para o modo de demonstração, adiciona a linha 033 manualmente
-    // Limpa opções existentes (mantém a primeira vazia)
-    selectLinha.innerHTML = '<option value="">Selecione...</option>';
-    
-    // Adiciona linha de demonstração 033
-    const optionDemo = document.createElement('option');
-    optionDemo.value = '033';
-    optionDemo.textContent = '033 - Sta. Antônio (Inspetor de Testes)';
-    selectLinha.appendChild(optionDemo);
-    
-    // Tenta carregar demais linhas da API
-    const url = `${URL_PLANILHA}?acao=buscar_linhas&termo=`;
-    const resp = await fetch(url);
+    const resp = await fetch(`${URL_PLANILHA}?acao=buscar_linhas&termo=`);
     const linhas = await resp.json();
-    
-    if (linhas && linhas.length > 0) {
-      // Ordena por número da linha
-      linhas.sort((a, b) => {
-        const numA = parseInt(a.numero) || 0;
-        const numB = parseInt(b.numero) || 0;
-        return numA - numB;
-      });
-      
-      // Adiciona todas as linhas ao select (exceto a 033 que já foi adicionada)
+    if (linhas && linhas.length) {
+      linhas.sort((a,b) => (parseInt(a.numero)||0) - (parseInt(b.numero)||0));
       linhas.forEach(linha => {
         if (linha.numero !== '033') {
-          const option = document.createElement('option');
-          option.value = linha.numero;
-          option.textContent = `${linha.numero} - ${linha.nome || ''}`;
-          selectLinha.appendChild(option);
+          const opt = document.createElement('option');
+          opt.value = linha.numero;
+          opt.textContent = `${linha.numero} - ${linha.nome || ''}`;
+          select.appendChild(opt);
         }
       });
     }
-  } catch (e) {
-    console.warn('Erro ao carregar lista de linhas:', e);
-  }
+  } catch(e) { console.warn(e); }
+}
+
+// ====================================================================
+// BENS, VÍTIMAS, TESTEMUNHAS (RENDERIZAÇÃO DINÂMICA)
+// ====================================================================
+function adicionarVeiculoBem() { veiculoCounter++; bensArray.push({ id: veiculoCounter, tipo:'Veículo '+veiculoCounter, placa:'', modelo:'', ano:'', cor:'', proprietario:'', telefone:'', danos:'', fotos:[], fotosTemp:[] }); renderizarBensFixos(); }
+function removerVeiculoBem(index) { if (confirm('Remover este veículo?')) { bensArray.splice(index,1); renderizarBensFixos(); } }
+function atualizarVeiculoBem(index, campo, valor) { bensArray[index][campo] = valor; }
+function renderizarBensFixos() {
+  const container = getEl('bens-fixos-container');
+  if (!container) return;
+  if (!bensArray.length) { container.innerHTML = '<div class="empty-list"><small>Nenhum veículo adicionado.</small></div>'; return; }
+  let html = '';
+  bensArray.forEach((bem, idx) => {
+    const fotosPreview = bem.fotosTemp ? bem.fotosTemp.map(f => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : (bem.fotos ? bem.fotos.map(f => `<span class="anexo-item">🔗 ${f.substring(0,30)}...</span>`).join('') : '');
+    html += `<div class="veiculo-card"><button class="btn-remover-veiculo" onclick="removerVeiculoBem(${idx})">🗑️</button><h4>Veículo ${bem.id}</h4><div class="form-row"><div class="field"><label>Tipo</label><input type="text" value="${bem.tipo}" onchange="atualizarVeiculoBem(${idx}, 'tipo', this.value)"></div><div class="field"><label>Placa</label><input type="text" value="${bem.placa||''}" onchange="atualizarVeiculoBem(${idx}, 'placa', this.value)"></div></div><div class="form-row"><div class="field"><label>Modelo</label><input type="text" value="${bem.modelo||''}" onchange="atualizarVeiculoBem(${idx}, 'modelo', this.value)"></div><div class="field"><label>Ano</label><input type="text" value="${bem.ano||''}" onchange="atualizarVeiculoBem(${idx}, 'ano', this.value)"></div></div><div class="form-row"><div class="field"><label>Cor</label><input type="text" value="${bem.cor||''}" onchange="atualizarVeiculoBem(${idx}, 'cor', this.value)"></div><div class="field"><label>Proprietário</label><input type="text" value="${bem.proprietario||''}" onchange="atualizarVeiculoBem(${idx}, 'proprietario', this.value)"></div></div><div class="form-row"><div class="field"><label>Telefone</label><input type="tel" value="${bem.telefone||''}" onchange="atualizarVeiculoBem(${idx}, 'telefone', this.value)"></div><div class="field"><label>Danos</label><input type="text" value="${bem.danos||''}" onchange="atualizarVeiculoBem(${idx}, 'danos', this.value)"></div></div><div class="field"><label>Fotos do Terceiro (até 6)</label><div style="display:flex; gap:8px; margin-bottom:8px;"><button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'camera')">📷 Câmera</button><button type="button" class="btn-secundario" onclick="anexarFotosVeiculo(${idx}, 'galeria')">🖼️ Galeria</button></div><div class="grid-anexos-preview">${fotosPreview}</div></div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function adicionarVitima() { vitimaCounter++; vitimasArray.push({ id: vitimaCounter, nome:'', documento:'', contato:'', lesoes:'', atendimento:'', fotos:[], fotosTemp:[] }); renderizarVitimasFixas(); }
+function removerVitima(index) { if (confirm('Remover esta vítima?')) { vitimasArray.splice(index,1); renderizarVitimasFixas(); } }
+function atualizarVitima(index, campo, valor) { vitimasArray[index][campo] = valor; }
+function renderizarVitimasFixas() {
+  const container = getEl('vitimas-fixas-container');
+  if (!container) return;
+  if (!vitimasArray.length) { container.innerHTML = '<div class="empty-list"><small>Nenhuma vítima adicionada.</small></div>'; return; }
+  let html = '';
+  vitimasArray.forEach((v, idx) => {
+    const fotosPreview = v.fotosTemp ? v.fotosTemp.map(f => `<span class="anexo-item">📷 ${f.nome}</span>`).join('') : (v.fotos ? v.fotos.map(f => `<span class="anexo-item">🔗 ${f.substring(0,30)}...</span>`).join('') : '');
+    html += `<div class="vitima-card"><button class="btn-remover-vitima" onclick="removerVitima(${idx})">🗑️</button><h4>Vítima ${v.id}</h4><div class="form-row"><div class="field"><label>Nome</label><input type="text" value="${v.nome||''}" onchange="atualizarVitima(${idx}, 'nome', this.value)"></div><div class="field"><label>Documento (RG/CPF)</label><input type="text" value="${v.documento||''}" onchange="atualizarVitima(${idx}, 'documento', this.value)"></div></div><div class="form-row"><div class="field"><label>Contato</label><input type="tel" value="${v.contato||''}" onchange="atualizarVitima(${idx}, 'contato', this.value)"></div><div class="field"><label>Lesões</label><input type="text" value="${v.lesoes||''}" onchange="atualizarVitima(${idx}, 'lesoes', this.value)"></div></div><div class="field"><label>Atendimento</label><input type="text" value="${v.atendimento||''}" onchange="atualizarVitima(${idx}, 'atendimento', this.value)"></div><div class="field"><label>Fotos (opcional)</label><div style="display:flex; gap:8px; margin-bottom:8px;"><button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'camera')">📷 Câmera</button><button type="button" class="btn-secundario" onclick="anexarFotosVitima(${idx}, 'galeria')">🖼️ Galeria</button></div><div class="grid-anexos-preview">${fotosPreview}</div></div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function adicionarTestemunha() { testemunhaCounter++; testemunhasArray.push({ id: testemunhaCounter, nome:'', documento:'', contato:'', relato:'' }); renderizarTestemunhasFixas(); }
+function removerTestemunha(index) { if (confirm('Remover esta testemunha?')) { testemunhasArray.splice(index,1); renderizarTestemunhasFixas(); } }
+function atualizarTestemunha(index, campo, valor) { testemunhasArray[index][campo] = valor; }
+function renderizarTestemunhasFixas() {
+  const container = getEl('testemunhas-fixas-container');
+  if (!container) return;
+  if (!testemunhasArray.length) { container.innerHTML = '<div class="empty-list"><small>Nenhuma testemunha adicionada.</small></div>'; return; }
+  let html = '';
+  testemunhasArray.forEach((t, idx) => {
+    html += `<div class="testemunha-card"><button class="btn-remover-testemunha" onclick="removerTestemunha(${idx})">🗑️</button><h4>Testemunha ${t.id}</h4><div class="form-row"><div class="field"><label>Nome</label><input type="text" value="${t.nome||''}" onchange="atualizarTestemunha(${idx}, 'nome', this.value)"></div><div class="field"><label>Documento (RG/CPF)</label><input type="text" value="${t.documento||''}" onchange="atualizarTestemunha(${idx}, 'documento', this.value)"></div></div><div class="form-row"><div class="field"><label>Contato</label><input type="tel" value="${t.contato||''}" onchange="atualizarTestemunha(${idx}, 'contato', this.value)"></div></div><div class="field"><label>Relato</label><textarea rows="3" onchange="atualizarTestemunha(${idx}, 'relato', this.value)">${t.relato||''}</textarea></div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ====================================================================
+// DITADO POR VOZ (SIMPLES)
+// ====================================================================
+let recognitionHistorico = null, recognitionParecer = null, ditandoHistorico = false, ditandoParecer = false;
+function iniciarReconhecimentoFala() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { alert('Seu navegador não suporta reconhecimento de fala.'); return null; }
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  return recognition;
+}
+async function gravarHistorico() {
+  const isDemoUser = getEl('cadastro-chapa')?.value === '55555';
+  if (isDemoUser) { iniciarSimulacaoDitadoHistorico(); return; }
+  if (ditandoHistorico) { if (recognitionHistorico) recognitionHistorico.stop(); ditandoHistorico = false; return; }
+  const recognition = iniciarReconhecimentoFala();
+  if (!recognition) return;
+  recognitionHistorico = recognition;
+  const textarea = getEl('cadastro-historico');
+  if (!textarea) return;
+  recognition.onresult = (event) => { const transcript = event.results[event.results.length-1][0].transcript; textarea.value += (textarea.value ? ' ' : '') + transcript; };
+  recognition.onerror = (event) => { if (event.error !== 'no-speech') console.warn(event.error); ditandoHistorico = false; };
+  recognition.onend = () => { if (ditandoHistorico) recognition.start(); };
+  recognition.start();
+  ditandoHistorico = true;
+}
+function iniciarSimulacaoDitadoHistorico() {
+  const texto = "Eu estava trafegando normalmente com o ônibus pelo local dos fatos, quando eu estava indo para a direita para para no ponto, uma motocicleta foi me ultrapassar pela direita e acabou colidindo com minha lateral direita traseira. Após a queda, o motociclista caiu e sofreu arranhões leves. A moto foi pra debaixo do ônibus e ficou danificada.";
+  const textarea = getEl('cadastro-historico');
+  if (!textarea) return;
+  const palavras = texto.split(' ');
+  let idx = 0;
+  textarea.value = '';
+  const interval = setInterval(() => {
+    if (idx < palavras.length) { textarea.value += (idx ? ' ' : '') + palavras[idx]; idx++; }
+    else { clearInterval(interval); salvarRascunhoLocal(); }
+  }, 150);
+}
+async function gravarParecer() {
+  if (ditandoParecer) { if (recognitionParecer) recognitionParecer.stop(); ditandoParecer = false; return; }
+  const recognition = iniciarReconhecimentoFala();
+  if (!recognition) return;
+  recognitionParecer = recognition;
+  const textarea = getEl('parecer-visao');
+  if (!textarea) return;
+  recognition.onresult = (event) => { const transcript = event.results[event.results.length-1][0].transcript; textarea.value += (textarea.value ? ' ' : '') + transcript; };
+  recognition.onerror = (event) => { if (event.error !== 'no-speech') console.warn(event.error); ditandoParecer = false; };
+  recognition.onend = () => { if (ditandoParecer) recognition.start(); };
+  recognition.start();
+  ditandoParecer = true;
+}
+
+// ====================================================================
+// FEEDBACK VISUAL (TOAST)
+// ====================================================================
+let toastTimeout = null;
+function mostrarFeedback(mensagem, duracaoMs = 2000) {
+  const existente = document.querySelector('.toast-feedback');
+  if (existente) existente.remove();
+  if (toastTimeout) clearTimeout(toastTimeout);
+  const toast = document.createElement('div');
+  toast.className = 'toast-feedback';
+  toast.textContent = mensagem;
+  toast.style.cssText = `position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:8px; z-index:10002; font-size:14px; font-weight:500; box-shadow:0 4px 12px rgba(0,0,0,0.3); animation:fadeInOut ${duracaoMs}ms ease forwards; pointer-events:none;`;
+  document.body.appendChild(toast);
+  toastTimeout = setTimeout(() => { if (toast.parentNode) toast.remove(); }, duracaoMs);
 }
 
 // ====================================================================
 // UTILITÁRIOS
 // ====================================================================
-function getEl(id) {
-  return document.getElementById(id);
-}
-
-function getCheckedValues(name) {
-  const checkboxes = document.querySelectorAll(`input[name="${name}"]:checked`);
-  return Array.from(checkboxes).map(cb => cb.value);
-}
-
-function getSelectedRadioValue(name) {
-  const radio = document.querySelector(`input[name="${name}"]:checked`);
-  return radio ? radio.value : '';
-}
-
-function preencherDataAtual() {
-  const dataInput = getEl('cadastro-data');
-  if (dataInput && !dataInput.value) {
-    const hoje = new Date().toISOString().split('T')[0];
-    dataInput.value = hoje;
-  }
-  const horaInput = getEl('cadastro-hora');
-  if (horaInput && !horaInput.value) {
-    const agora = new Date();
-    const horas = String(agora.getHours()).padStart(2, '0');
-    const minutos = String(agora.getMinutes()).padStart(2, '0');
-    horaInput.value = `${horas}:${minutos}`;
-  }
-}
-
-const debounceTimers = new Map();
-function debounce(func, wait) {
-  return function executedFunction(...args) {
-    const context = this;
-    if (debounceTimers.has(func)) {
-      clearTimeout(debounceTimers.get(func));
-    }
-    const timeoutId = setTimeout(() => {
-      func.apply(context, args);
-      debounceTimers.delete(func);
-    }, wait);
-    debounceTimers.set(func, timeoutId);
-  };
-}
+function getEl(id) { return document.getElementById(id); }
+function getCheckedValues(name) { return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value); }
+function getSelectedRadioValue(name) { const radio = document.querySelector(`input[name="${name}"]:checked`); return radio ? radio.value : ''; }
+function restaurarDadosSessionStorage() { /* já implementado em init */ }
+function debounce(func, wait) { let timer; return function(...args) { clearTimeout(timer); timer = setTimeout(() => func.apply(this, args), wait); }; }
 
 // ====================================================================
-// CARREGAR ACIDENTE EXISTENTE
-// ====================================================================
-async function carregarAcidenteExistente(id) {
-  const url = `${URL_PLANILHA}?acao=obter_acidente&id=${id}`;
-  const response = await fetch(url);
-  const acidente = await response.json();
-  if (!acidente) return;
-  
-  acidenteAtualId = acidente.id;
-  originalStatus = acidente.status;
-  editMode = true;
-  
-  // Preencher formulário com dados existentes
-  preencherFormularioComDados(acidente);
-  
-  const currentUser = localStorage.getItem('inspectorApelido');
-  const podeEditar = (window.currentUserRole === 'ADMIN' || window.currentUserRole === 'SAF' || window.currentUserRole === 'ENCARREGADO' || acidente.fiscal === currentUser);
-  
-  if (acidente.status === 'FINALIZADO' || !podeEditar) {
-    desabilitarEdicao();
-    alert('Este relatório está finalizado ou você não tem permissão para editar. Modo somente leitura.');
-  } else {
-    habilitarEdicao();
-  }
-}
-
-function desabilitarEdicao() {
-  const inputs = document.querySelectorAll('#modal-envio-informacoes input, #modal-envio-informacoes textarea, #modal-envio-informacoes select, #modal-envio-informacoes button');
-  inputs.forEach(el => el.disabled = true);
-}
-
-function habilitarEdicao() {
-  const inputs = document.querySelectorAll('#modal-envio-informacoes input, #modal-envio-informacoes textarea, #modal-envio-informacoes select');
-  inputs.forEach(el => el.disabled = false);
-}
-
-// ====================================================================
-// EXPORTAR FUNÇÕES PARA ESCOPO GLOBAL
+// EXPORTAÇÃO GLOBAL
 // ====================================================================
 window.abrirModalEnvio = abrirModalEnvio;
 window.fecharModalEnvio = fecharModalEnvio;
@@ -2013,8 +1013,6 @@ window.finalizarAcidenteCompleto = finalizarAcidenteCompleto;
 window.buscarCEP = buscarCEP;
 window.buscarEnderecoPorCEP = buscarEnderecoPorCEP;
 window.buscarDadosLinha = buscarDadosLinha;
-window.buscarDadosVeiculo = buscarDadosVeiculo;
-window.buscarDadosMotorista = buscarDadosMotorista;
 window.carregarListaLinhas = carregarListaLinhas;
 window.toggleSituacaoOnibus = toggleSituacaoOnibus;
 window.toggleOutrosLocal = toggleOutrosLocal;
