@@ -348,39 +348,96 @@ function salvarRascunhoLocal() {
 // ====================================================================
 // SALVAR ABAS INDIVIDUAIS
 // ====================================================================
+// ====================================================================
+// SALVAR ABA CADASTRO (envia ao backend + local)
+// ====================================================================
 async function salvarAbaCadastro() {
   coletarDadosCadastro();
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Cadastro salvos!');
+  // Monta objeto completo com os dados atuais
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Cadastro salvos no servidor!');
+  } catch (error) {
+    console.error('Erro ao salvar no backend:', error);
+    // Fallback: salvar apenas localmente
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente. Reconecte e salve novamente.');
+  }
 }
 
+// ====================================================================
+// SALVAR ABA ANÁLISE
+// ====================================================================
 async function salvarAbaAnalise() {
   coletarDadosAnalise();
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Análise salvos!');
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Análise salvos no servidor!');
+  } catch (error) {
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+  }
 }
 
+// ====================================================================
+// SALVAR ABA BENS
+// ====================================================================
 async function salvarAbaBens() {
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Bens salvos!');
+  // Não há coleta específica, pois bensArray já está atualizado via UI
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Bens salvos no servidor!');
+  } catch (error) {
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+  }
 }
 
+// ====================================================================
+// SALVAR ABA VÍTIMAS
+// ====================================================================
 async function salvarAbaVitimas() {
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Vítimas salvos!');
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Vítimas salvos no servidor!');
+  } catch (error) {
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+  }
 }
 
+// ====================================================================
+// SALVAR ABA TESTEMUNHAS
+// ====================================================================
 async function salvarAbaTestemunhas() {
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Testemunhas salvos!');
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Testemunhas salvos no servidor!');
+  } catch (error) {
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+  }
 }
 
+// ====================================================================
+// SALVAR ABA PARECER
+// ====================================================================
 async function salvarAbaParecer() {
   coletarDadosParecer();
-  salvarRascunhoLocal();
-  mostrarFeedback('✅ Dados da aba Parecer salvos!');
+  const dadosCompletos = montarObjetoAcidenteCompleto();
+  try {
+    await salvarNoBackend(dadosCompletos, 'salvar_rascunho_acidente');
+    mostrarFeedback('✅ Dados da aba Parecer salvos no servidor!');
+  } catch (error) {
+    salvarRascunhoLocal();
+    mostrarFeedback('⚠️ Offline: dados salvos apenas localmente.');
+  }
 }
-
 function mostrarFeedback(mensagem) {
   alert(mensagem);
 }
