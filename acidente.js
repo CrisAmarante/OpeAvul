@@ -566,12 +566,14 @@ function coletarDadosParecer() {
 
 // ====================================================================
 // MONTAR OBJETO COMPLETO (SEM FOTOS NO PAYLOAD PRINCIPAL – SERÃO ENVIADAS SEPARADAMENTE)
+// Etapa 1: Alinhamento completo com backend - todos os campos mapeados
 // ====================================================================
 function montarObjetoAcidenteCompleto(semFotos = true) {
   coletarDadosCadastro();
   coletarDadosAnalise();
   coletarDadosParecer();
 
+  // Montar endereço completo a partir dos campos individuais
   const enderecoCompleto = [
     dadosCadastro.logradouro,
     dadosCadastro.bairro,
@@ -582,29 +584,104 @@ function montarObjetoAcidenteCompleto(semFotos = true) {
   const payload = {
     id: acidenteAtualId,
     status: editMode ? originalStatus : 'EM_ANDAMENTO',
-    fiscal: localStorage.getItem('inspectorApelido'),
-    finalizado: (originalStatus === 'FINALIZADO'),
+    fiscal: localStorage.getItem('inspectorApelido') || '',
+    finalizado: (originalStatus === 'FINALIZADO') || false,
+    
+    // Dados principais da ocorrência (alinhados com Ocorrencia_acidentes)
     dataAcidente: dadosCadastro.data || '',
     horaAcidente: dadosCadastro.hora || '',
     local: enderecoCompleto,
     descricaoAnalise: dadosCadastro.historico || '',
+    anexosPrincipais: semFotos ? [] : (fotosColetivoArray.concat(fotosLocalArray)),
     prefixo: dadosCadastro.prefixo || '',
     motoristaChapa: dadosCadastro.chapa || '',
-    cadastro: dadosCadastro,
-    analise: dadosAnalise,
+    
+    // Objetos completos por aba (para persistência e recuperação)
+    cadastro: {
+      tipoAcidente: dadosCadastro.tipoAcidente || '',
+      data: dadosCadastro.data || '',
+      hora: dadosCadastro.hora || '',
+      logradouro: dadosCadastro.logradouro || '',
+      bairro: dadosCadastro.bairro || '',
+      cidade: dadosCadastro.cidade || '',
+      cep: dadosCadastro.cep || '',
+      codigoLinha: dadosCadastro.codigoLinha || '',
+      nomeLinha: dadosCadastro.nomeLinha || '',
+      sentidoLinha: dadosCadastro.sentidoLinha || '',
+      prefixo: dadosCadastro.prefixo || '',
+      placa: dadosCadastro.placa || '',
+      renavan: dadosCadastro.renavan || '',
+      anoFab: dadosCadastro.anoFab || '',
+      marca: dadosCadastro.marca || '',
+      modelo: dadosCadastro.modelo || '',
+      cor: dadosCadastro.cor || '',
+      cidadeOnibus: dadosCadastro.cidadeOnibus || '',
+      chapa: dadosCadastro.chapa || '',
+      apelido: dadosCadastro.apelido || '',
+      nomeCompleto: dadosCadastro.nomeCompleto || '',
+      cnh: dadosCadastro.cnh || '',
+      validadeCnh: dadosCadastro.validadeCnh || '',
+      motoLogradouro: dadosCadastro.motoLogradouro || '',
+      motoBairro: dadosCadastro.motoBairro || '',
+      motoCidade: dadosCadastro.motoCidade || '',
+      motoComplemento: dadosCadastro.motoComplemento || '',
+      nascimento: dadosCadastro.nascimento || '',
+      naturalidade: dadosCadastro.naturalidade || '',
+      nomeMae: dadosCadastro.nomeMae || '',
+      celular: dadosCadastro.celular || '',
+      historico: dadosCadastro.historico || '',
+      fotoCNH: semFotos ? null : fotoCNHBase64
+    },
+    analise: {
+      situacaoOnibus: dadosAnalise.situacaoOnibus || [],
+      movimentacao: dadosAnalise.movimentacao || [],
+      velocidade: dadosAnalise.velocidade || '',
+      paradoSituacao: dadosAnalise.paradoSituacao || [],
+      lotacao: dadosAnalise.lotacao || '',
+      parteAvariada: dadosAnalise.parteAvariada || [],
+      danosResultantes: dadosAnalise.danosResultantes || [],
+      periodo: dadosAnalise.periodo || [],
+      clima: dadosAnalise.clima || [],
+      iluminacao: dadosAnalise.iluminacao || [],
+      visibilidade: dadosAnalise.visibilidade || [],
+      tipoAcidenteAnalise: dadosAnalise.tipoAcidenteAnalise || [],
+      localPreenchimento: dadosAnalise.localPreenchimento || [],
+      outrosLocal: dadosAnalise.outrosLocal || '',
+      autoridades: dadosAnalise.autoridades || [],
+      orgaoGestor: dadosAnalise.orgaoGestor || '',
+      orgao: dadosAnalise.orgao || '',
+      responsavelGestor: dadosAnalise.responsavelGestor || '',
+      protocolo: dadosAnalise.protocolo || ''
+    },
     parecer: dadosParecer,
-    bens: bensArray,
-    vitimas: vitimasArray,
-    testemunhas: testemunhasArray
+    bens: bensArray.map(b => ({
+      tipoBem: b.tipoBem || b.tipo || '',
+      placa: b.placa || '',
+      ano: b.ano || '',
+      cor: b.cor || '',
+      modelo: b.modelo || '',
+      renavan: b.renavan || b.renavam || '',
+      proprietario: b.proprietario || '',
+      telefone: b.telefone || '',
+      parteAvariada: b.parteAvariada || '',
+      danosResultantes: b.danosResultantes || b.danos || '',
+      fotos: semFotos ? [] : (b.fotos || [])
+    })),
+    vitimas: vitimasArray.map(v => ({
+      nome: v.nome || '',
+      documento: v.documento || v.documento_vitima || '',
+      contato: v.contato || v.contato_vitima || '',
+      lesoes: v.lesoes || '',
+      atendimento: v.atendimento || v.atendimento_vitima || '',
+      fotos: semFotos ? [] : (v.fotos || [])
+    })),
+    testemunhas: testemunhasArray.map(t => ({
+      nome: t.nome || '',
+      documento: t.documento || '',
+      contato: t.contato || '',
+      relato: t.relato || ''
+    }))
   };
-
-  // Se solicitado, remover fotos (base64) do payload principal para evitar lentidão
-  if (semFotos) {
-    if (payload.cadastro) delete payload.cadastro.fotoCNH;
-    // Fotos de bens/vítimas também serão tratadas depois
-    payload.bens = payload.bens?.map(b => { const { fotos, ...rest } = b; return rest; });
-    payload.vitimas = payload.vitimas?.map(v => { const { fotos, ...rest } = v; return rest; });
-  }
 
   return payload;
 }
