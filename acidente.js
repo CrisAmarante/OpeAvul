@@ -1,9 +1,8 @@
 // ====================================================================
-// acidente.js - Módulo de Relatório de Acidentes (Versão Final com Upload de Fotos)
+// acidente.js - Módulo de Relatório de Acidentes (Versão Atualizada)
 // ====================================================================
-// Funcionalidades: gestão de acidentes (cadastro, análise, bens, vítimas,
-// testemunhas, parecer), compressão de imagens, upload para Google Drive,
-// persistência de links, debounce, toasts, autocomplete, etc.
+// Funcionalidades: gestão completa de acidentes, compressão otimizada,
+// upload para Drive, persistência, consulta e finalização robusta.
 // ====================================================================
 
 // ====================================================================
@@ -116,6 +115,9 @@ function iniciarNovoAcidente() {
   carregarRascunhoLocal();
 }
 
+// ====================================================================
+// LIMPEZA DE FORMULÁRIOS
+// ====================================================================
 function limparFormularioCadastro() {
   const ids = ['cadastro-data', 'cadastro-hora', 'cadastro-logradouro', 'cadastro-bairro',
                'cadastro-cidade', 'cadastro-cep', 'cadastro-codigo-linha', 'cadastro-nome-linha',
@@ -130,7 +132,6 @@ function limparFormularioCadastro() {
   const preview = getEl('preview-foto-cnh');
   if (preview) preview.innerHTML = '';
 }
-
 function limparFormularioAnalise() {
   document.querySelectorAll('#tab-analise input[type="checkbox"]').forEach(cb => cb.checked = false);
   document.querySelectorAll('#tab-analise input[type="radio"]').forEach(r => r.checked = false);
@@ -143,7 +144,6 @@ function limparFormularioAnalise() {
   const container = getEl('autoridades-fields-container');
   if (container) container.innerHTML = '';
 }
-
 function limparFormularioParecer() {
   const ids = ['parecer-visao', 'parecer-culpa-outros', 'parecer-motivo'];
   ids.forEach(id => { const el = getEl(id); if (el) el.value = ''; });
@@ -151,7 +151,7 @@ function limparFormularioParecer() {
 }
 
 // ====================================================================
-// RASCUNHO LOCAL (FALLBACK)
+// RASCUNHO LOCAL
 // ====================================================================
 function carregarRascunhoLocal() {
   const chave = `rascunho_acidente_${acidenteAtualId}`;
@@ -163,7 +163,6 @@ function carregarRascunhoLocal() {
     } catch(e) { console.warn(e); }
   }
 }
-
 function preencherFormularioComDados(dados) {
   if (dados.cadastro) {
     Object.keys(dados.cadastro).forEach(key => {
@@ -183,7 +182,6 @@ function preencherFormularioComDados(dados) {
   if (dados.fotosColetivo) { fotosColetivoLinks = dados.fotosColetivo; renderizarFotosColetivo(); }
   if (dados.fotosLocal) { fotosLocalLinks = dados.fotosLocal; renderizarFotosLocal(); }
 }
-
 function salvarRascunhoLocal() {
   try {
     const dados = montarObjetoAcidenteCompleto(true);
@@ -200,48 +198,50 @@ function salvarRascunhoLocal() {
 }
 
 // ====================================================================
-// COMPRESSÃO DE IMAGEM
+// ETAPA 2 - COMPRESSÃO DE IMAGEM (Atualizada e Melhorada)
 // ====================================================================
-async function compressImage(file, maxWidth = 1024, quality = 0.7) {
+/**
+ * Comprime imagem mantendo aspect ratio, com limite de largura e qualidade
+ */
+async function comprimirImagem(file, maxWidth = 1024, quality = 0.7) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
       const img = new Image();
+      img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
+
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
           width = maxWidth;
         }
+
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          const readerBlob = new FileReader();
-          readerBlob.onloadend = () => {
-            const base64 = readerBlob.result.split(',')[1];
-            resolve({
-              base64: base64,
-              mimeType: 'image/jpeg',
-              nome: file.name.replace(/\.[^/.]+$/, '.jpg')
-            });
-          };
-          readerBlob.readAsDataURL(blob);
-        }, 'image/jpeg', quality);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({
+          base64: dataUrl.split(',')[1],
+          mimeType: 'image/jpeg',
+          nome: file.name.replace(/\.[^/.]+$/, '.jpg'),
+          tamanhoOriginal: file.size,
+          tamanhoNovo: Math.round((dataUrl.length * 3) / 4)
+        });
       };
-      img.onerror = reject;
-      img.src = e.target.result;
+      img.onerror = () => reject(new Error('Erro ao carregar imagem'));
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
   });
 }
 
 // ====================================================================
-// FUNÇÕES DE CAPTURA DE FOTOS (com compressão)
+// FUNÇÕES DE ANEXO DE FOTOS (Mantidas e Integradas)
 // ====================================================================
 async function anexarFotosColetivo(modo = 'ambos') {
   const input = document.createElement('input');
@@ -263,7 +263,6 @@ async function anexarFotosColetivo(modo = 'ambos') {
   };
   input.click();
 }
-
 async function anexarFotosLocal(modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
@@ -284,7 +283,6 @@ async function anexarFotosLocal(modo = 'ambos') {
   };
   input.click();
 }
-
 async function anexarFotosVeiculo(index, modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
@@ -306,7 +304,6 @@ async function anexarFotosVeiculo(index, modo = 'ambos') {
   };
   input.click();
 }
-
 async function anexarFotosVitima(index, modo = 'ambos') {
   const input = document.createElement('input');
   input.type = 'file';
@@ -332,14 +329,14 @@ async function anexarFotosVitima(index, modo = 'ambos') {
 function handleFotoCNH(input) {
   const file = input.files[0];
   if (!file) return;
-  compressImage(file).then(compressed => {
+  comprimirImagem(file).then(compressed => {
     fotoCNHTemp = compressed.base64;
     const preview = getEl('preview-foto-cnh');
     if (preview) preview.innerHTML = `<img src="data:image/jpeg;base64,${compressed.base64}" alt="CNH">`;
   }).catch(console.error);
 }
 
-// Renderização (exibe nomes das fotos temporárias)
+// Renderização de fotos
 function renderizarFotosColetivo() {
   const container = getEl('lista-fotos-coletivo');
   if (!container) return;
@@ -356,7 +353,6 @@ function renderizarFotosColetivo() {
   });
   container.innerHTML = html;
 }
-
 function renderizarFotosLocal() {
   const container = getEl('lista-fotos-local');
   if (!container) return;
@@ -373,16 +369,17 @@ function renderizarFotosLocal() {
   });
   container.innerHTML = html;
 }
-
 function removerFotoColetivo(idx) { fotosColetivoTemp.splice(idx, 1); renderizarFotosColetivo(); }
 function removerFotoLocal(idx) { fotosLocalTemp.splice(idx, 1); renderizarFotosLocal(); }
 function removerFotoColetivoLink(idx) { fotosColetivoLinks.splice(idx, 1); renderizarFotosColetivo(); }
 function removerFotoLocalLink(idx) { fotosLocalLinks.splice(idx, 1); renderizarFotosLocal(); }
 
 // ====================================================================
-// ENVIO DE FOTOS PARA O DRIVE
+// ENVIO DE FOTOS PARA O DRIVE (Integrado e Melhorado)
 // ====================================================================
 async function enviarFotosParaDrive() {
+  mostrarFeedback('📤 Enviando fotos para o Drive...', 1500);
+
   const payloadFotos = {
     idAcidente: acidenteAtualId,
     prefixo: dadosCadastro.prefixo || '',
@@ -392,34 +389,48 @@ async function enviarFotosParaDrive() {
     fotosVeiculos: bensArray.map((bem, idx) => ({ index: idx, fotos: bem.fotosTemp || [] })),
     fotosVitimas: vitimasArray.map((vit, idx) => ({ index: idx, fotos: vit.fotosTemp || [] }))
   };
+
   const formData = new URLSearchParams();
   formData.append('acao', 'upload_anexos');
   formData.append('dados', JSON.stringify(payloadFotos));
-  const response = await fetch(URL_PLANILHA, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData
-  });
-  const result = await response.json();
-  if (!result.success) throw new Error('Falha no upload das fotos');
-  // Atualizar links
-  if (result.fotoCNH) dadosCadastro.fotoCNH = result.fotoCNH;
-  fotosColetivoLinks = result.fotosColetivo || [];
-  fotosLocalLinks = result.fotosLocal || [];
-  for (let i = 0; i < result.fotosVeiculos.length; i++) {
-    if (bensArray[i]) bensArray[i].fotos = result.fotosVeiculos[i].fotos;
-  }
-  for (let i = 0; i < result.fotosVitimas.length; i++) {
-    if (vitimasArray[i]) vitimasArray[i].fotos = result.fotosVitimas[i].fotos;
-  }
-  // Limpar temporários
-  fotosColetivoTemp = [];
-  fotosLocalTemp = [];
-  fotoCNHTemp = null;
-  bensArray.forEach(b => delete b.fotosTemp);
-  vitimasArray.forEach(v => delete v.fotosTemp);
-}
 
+  try {
+    const response = await fetch(URL_PLANILHA, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData
+    });
+    const result = await response.json();
+
+    if (!result.success) throw new Error(result.erro || 'Falha no upload');
+
+    // Atualiza links permanentes
+    if (result.fotoCNH) dadosCadastro.fotoCNH = result.fotoCNH;
+    fotosColetivoLinks = result.fotosColetivo || [];
+    fotosLocalLinks = result.fotosLocal || [];
+
+    // Atualiza fotos dos veículos e vítimas
+    result.fotosVeiculos?.forEach((item, i) => {
+      if (bensArray[i]) bensArray[i].fotos = item.fotos;
+    });
+    result.fotosVitimas?.forEach((item, i) => {
+      if (vitimasArray[i]) vitimasArray[i].fotos = item.fotos;
+    });
+
+    // Limpa temporários
+    fotosColetivoTemp = [];
+    fotosLocalTemp = [];
+    fotoCNHTemp = null;
+    bensArray.forEach(b => delete b.fotosTemp);
+    vitimasArray.forEach(v => delete v.fotosTemp);
+
+    return true;
+  } catch (error) {
+    console.error(error);
+    alert('Erro ao enviar fotos para o Drive.');
+    return false;
+  }
+}
 // ====================================================================
 // MONTAR OBJETO COMPLETO (sem fotos base64)
 // ====================================================================
@@ -535,38 +546,46 @@ async function _salvarAbaParecer() {
 function salvarAbaParecer() { debounceSalvarAba('parecer', _salvarAbaParecer); mostrarFeedback('💾 Salvando...', 1000); }
 
 // ====================================================================
-// FINALIZAR ACIDENTE (COM UPLOAD DE FOTOS PRIMEIRO)
+// FINALIZAR ACIDENTE (Versão Integrada e Melhorada)
 // ====================================================================
+/**
+ * Finaliza o acidente com compressão, upload e salvamento final
+ */
 async function finalizarAcidenteCompleto() {
-  // Verifica se há fotos pendentes
-  if (fotoCNHTemp || fotosColetivoTemp.length || fotosLocalTemp.length ||
-      bensArray.some(b => b.fotosTemp?.length) || vitimasArray.some(v => v.fotosTemp?.length)) {
-    mostrarFeedback('📤 Enviando fotos para o Drive...');
-    try {
-      await enviarFotosParaDrive();
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao enviar fotos. Verifique sua conexão e tente novamente.');
-      return;
-    }
+  if (!confirm("Deseja realmente FINALIZAR este relatório? Ele não poderá mais ser editado.")) {
+    return;
   }
+
+  // 1. Enviar fotos pendentes (se existirem)
+  const temFotosPendentes = fotoCNHTemp || fotosColetivoTemp.length || fotosLocalTemp.length ||
+                           bensArray.some(b => b.fotosTemp?.length) || 
+                           vitimasArray.some(v => v.fotosTemp?.length);
+
+  if (temFotosPendentes) {
+    mostrarFeedback('📤 Enviando fotos para o Drive...');
+    const uploadOk = await enviarFotosParaDrive();
+    if (!uploadOk) return;
+  }
+
+  // 2. Montar e salvar dados finais
   const dados = montarObjetoAcidenteCompleto(true);
   dados.finalizado = true;
   dados.status = 'FINALIZADO';
+
   try {
     await salvarNoBackend(dados, 'salvar_rascunho_acidente');
     await salvarNoBackend({ id: acidenteAtualId }, 'finalizar_acidente');
-    mostrarFeedback('✅ Relatório finalizado e enviado!');
+
+    mostrarFeedback('✅ Relatório finalizado e enviado com sucesso!', 3000);
     localStorage.removeItem(`rascunho_acidente_${acidenteAtualId}`);
     fecharModalEnvio();
-    const modalConsulta = getEl('modal-consulta-acidentes');
-    if (modalConsulta && modalConsulta.style.display !== 'none' && typeof carregarListaAcidentes === 'function') carregarListaAcidentes();
+
+    if (typeof carregarListaAcidentes === 'function') carregarListaAcidentes();
   } catch (error) {
     console.error(error);
-    alert('Erro ao finalizar: ' + error.message);
+    alert('Erro ao finalizar o acidente: ' + error.message);
   }
 }
-
 // ====================================================================
 // CARREGAR ACIDENTE EXISTENTE
 // ====================================================================
@@ -997,7 +1016,6 @@ function getCheckedValues(name) { return Array.from(document.querySelectorAll(`i
 function getSelectedRadioValue(name) { const radio = document.querySelector(`input[name="${name}"]:checked`); return radio ? radio.value : ''; }
 function restaurarDadosSessionStorage() { /* já implementado em init */ }
 function debounce(func, wait) { let timer; return function(...args) { clearTimeout(timer); timer = setTimeout(() => func.apply(this, args), wait); }; }
-
 // ====================================================================
 // EXPORTAÇÃO GLOBAL
 // ====================================================================
